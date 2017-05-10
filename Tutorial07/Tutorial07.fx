@@ -53,6 +53,7 @@ PS_INPUT VS( VS_INPUT input )
     output.Pos = mul( output.Pos, View );
     output.Pos = mul( output.Pos, Projection );
     output.Tex = input.Tex;
+	output.Norm = input.Norm;
     
     return output;
 }
@@ -72,5 +73,5 @@ float4 psTextured( PS_INPUT input) : SV_Target
 //--------------------------------------------------------------------------------------
 float4 psNormal(PS_INPUT input) : SV_Target
 {
-	return txDiffuse.Sample(samLinear, input.Tex) * vMeshColor;
+	return input.Norm;
 }

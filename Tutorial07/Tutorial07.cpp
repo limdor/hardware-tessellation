@@ -18,6 +18,7 @@
 #include <directxmath.h>
 #include <directxcolors.h>
 #include "DDSTextureLoader.h"
+#include "ReadData.h"
 #include "resource.h"
 
 using namespace DirectX;
@@ -164,43 +165,6 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
         return E_FAIL;
 
     ShowWindow( g_hWnd, nCmdShow );
-
-    return S_OK;
-}
-
-
-//--------------------------------------------------------------------------------------
-// Helper for compiling shaders with D3DCompile
-//
-// With VS 11, we could load up prebuilt .cso files instead...
-//--------------------------------------------------------------------------------------
-HRESULT CompileShaderFromFile( WCHAR* szFileName, LPCSTR szEntryPoint, LPCSTR szShaderModel, ID3DBlob** ppBlobOut )
-{
-    DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-    // Set the D3DCOMPILE_DEBUG flag to embed debug information in the shaders.
-    // Setting this flag improves the shader debugging experience, but still allows 
-    // the shaders to be optimized and to run exactly the way they will run in 
-    // the release configuration of this program.
-    dwShaderFlags |= D3DCOMPILE_DEBUG;
-
-    // Disable optimizations to further improve shader debugging
-    dwShaderFlags |= D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-
-    ID3DBlob* pErrorBlob = nullptr;
-	HRESULT hr = D3DCompileFromFile( szFileName, nullptr, nullptr, szEntryPoint, szShaderModel,
-        dwShaderFlags, 0, ppBlobOut, &pErrorBlob );
-    if( FAILED(hr) )
-    {
-        if( pErrorBlob )
-        {
-            OutputDebugStringA( reinterpret_cast<const char*>( pErrorBlob->GetBufferPointer() ) );
-            pErrorBlob->Release();
-        }
-        return hr;
-    }
-    if( pErrorBlob ) pErrorBlob->Release();
 
     return S_OK;
 }
@@ -388,21 +352,12 @@ HRESULT InitDevice()
     vp.TopLeftY = 0;
     g_pImmediateContext->RSSetViewports( 1, &vp );
 
-    // Compile the vertex shader
-    ID3DBlob* pVSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Tutorial07.fx", "VS", "vs_4_0", &pVSBlob );
+    // Create the vertex shader
+	auto blobVS = DX::ReadData(L"Transform_VS.cso");
+    hr = g_pd3dDevice->CreateVertexShader(blobVS.data(), blobVS.size(), nullptr, &g_pVertexShader );
     if( FAILED( hr ) )
     {
-        MessageBox( nullptr,
-                    L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK );
-        return hr;
-    }
-
-    // Create the vertex shader
-    hr = g_pd3dDevice->CreateVertexShader( pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &g_pVertexShader );
-    if( FAILED( hr ) )
-    {    
-        pVSBlob->Release();
+		MessageBox(nullptr, L"The Vertex Shader cannot be created.", L"Error", MB_OK);
         return hr;
     }
 
@@ -416,28 +371,16 @@ HRESULT InitDevice()
     UINT numElements = ARRAYSIZE( layout );
 
     // Create the input layout
-    hr = g_pd3dDevice->CreateInputLayout( layout, numElements, pVSBlob->GetBufferPointer(),
-                                          pVSBlob->GetBufferSize(), &g_pVertexLayout );
-    pVSBlob->Release();
+    hr = g_pd3dDevice->CreateInputLayout( layout, numElements, blobVS.data(), blobVS.size(), &g_pVertexLayout );
     if( FAILED( hr ) )
         return hr;
 
     // Set the input layout
     g_pImmediateContext->IASetInputLayout( g_pVertexLayout );
 
-    // Compile the pixel shader
-    ID3DBlob* pPSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Tutorial07.fx", "psTextured", "ps_4_0", &pPSBlob );
-    if( FAILED( hr ) )
-    {
-        MessageBox( nullptr,
-                    L"The FX file cannot be compiled.  Please run this executable from the directory that contains the FX file.", L"Error", MB_OK );
-        return hr;
-    }
-
     // Create the pixel shader
-    hr = g_pd3dDevice->CreatePixelShader( pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &g_pPixelShader );
-    pPSBlob->Release();
+	auto blobPS = DX::ReadData(L"Textured_PS.cso");
+    hr = g_pd3dDevice->CreatePixelShader( blobPS.data(), blobPS.size(), nullptr, &g_pPixelShader );
     if( FAILED( hr ) )
         return hr;
 

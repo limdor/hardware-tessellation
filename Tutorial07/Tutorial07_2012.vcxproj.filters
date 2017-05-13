@@ -24,15 +24,16 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
     <ClInclude Include="DDSTextureLoader.h" />
+    <ClInclude Include="ReadData.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Tutorial07.fx">
+    <FxCompile Include="Normals_PS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Tutorial07_PS.hlsl">
+    <FxCompile Include="Textured_PS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Tutorial07_VS.hlsl">
+    <FxCompile Include="Transform_VS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>
@@ -40,5 +41,10 @@
     <Image Include="seafloor.dds">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Input_PS.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

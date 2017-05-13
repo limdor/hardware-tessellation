@@ -12,19 +12,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSTextureLoader.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Tutorial07.cpp" />
+    <ClCompile Include="Ocean.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CLInclude Include="resource.h">
       <Filter>Resource Files</Filter>
     </CLInclude>
-    <ResourceCompile Include="Tutorial07.rc">
-      <Filter>Resource Files</Filter>
-    </ResourceCompile>
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="ReadData.h" />
+    <ClInclude Include="waves.h" />
+    <ClInclude Include="resource1.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Normals_PS.hlsl">
@@ -34,6 +31,15 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Transform_VS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Ocean_HS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Ocean_DS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Ocean_PS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>
@@ -46,5 +52,10 @@
     <None Include="Input_PS.hlsli">
       <Filter>Shaders</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Ocean.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

@@ -148,16 +148,16 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
     wcex.hCursor = LoadCursor( nullptr, IDC_ARROW );
     wcex.hbrBackground = ( HBRUSH )( COLOR_WINDOW + 1 );
     wcex.lpszMenuName = nullptr;
-    wcex.lpszClassName = L"TutorialWindowClass";
+    wcex.lpszClassName = L"OceanWindowClass";
     wcex.hIconSm = LoadIcon( wcex.hInstance, ( LPCTSTR )IDI_TUTORIAL1 );
     if( !RegisterClassEx( &wcex ) )
         return E_FAIL;
 
     // Create window
     g_hInst = hInstance;
-    RECT rc = { 0, 0, 800, 600 };
+    RECT rc = { 0, 0, 1024, 768 };
     AdjustWindowRect( &rc, WS_OVERLAPPEDWINDOW, FALSE );
-    g_hWnd = CreateWindow( L"TutorialWindowClass", L"Direct3D 11 Tutorial 7",
+    g_hWnd = CreateWindow( L"OceanWindowClass", L"Ocean rendering with hardware tessellation",
                            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                            CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
                            nullptr );
@@ -197,10 +197,7 @@ HRESULT InitDevice()
 
     D3D_FEATURE_LEVEL featureLevels[] =
     {
-        D3D_FEATURE_LEVEL_11_1,
-        D3D_FEATURE_LEVEL_11_0,
-        D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0,
+        D3D_FEATURE_LEVEL_11_1
     };
     UINT numFeatureLevels = ARRAYSIZE( featureLevels );
 
@@ -209,14 +206,6 @@ HRESULT InitDevice()
         g_driverType = driverTypes[driverTypeIndex];
         hr = D3D11CreateDevice( nullptr, g_driverType, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
                                 D3D11_SDK_VERSION, &g_pd3dDevice, &g_featureLevel, &g_pImmediateContext );
-
-        if ( hr == E_INVALIDARG )
-        {
-            // DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
-            hr = D3D11CreateDevice( nullptr, g_driverType, nullptr, createDeviceFlags, &featureLevels[1], numFeatureLevels - 1,
-                                    D3D11_SDK_VERSION, &g_pd3dDevice, &g_featureLevel, &g_pImmediateContext );
-        }
-
         if( SUCCEEDED( hr ) )
             break;
     }
@@ -224,28 +213,27 @@ HRESULT InitDevice()
         return hr;
 
     // Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-    IDXGIFactory1* dxgiFactory = nullptr;
+    IDXGIDevice* dxgiDevice = nullptr;
+    hr = g_pd3dDevice->QueryInterface( __uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice) );
+	if (FAILED(hr))
+		return hr;
+
+	IDXGIFactory1* dxgiFactory = nullptr;
+    IDXGIAdapter* adapter = nullptr;
+    hr = dxgiDevice->GetAdapter(&adapter);
+    if (SUCCEEDED(hr))
     {
-        IDXGIDevice* dxgiDevice = nullptr;
-        hr = g_pd3dDevice->QueryInterface( __uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice) );
-        if (SUCCEEDED(hr))
-        {
-            IDXGIAdapter* adapter = nullptr;
-            hr = dxgiDevice->GetAdapter(&adapter);
-            if (SUCCEEDED(hr))
-            {
-                hr = adapter->GetParent( __uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory) );
-                adapter->Release();
-            }
-            dxgiDevice->Release();
-        }
+        hr = adapter->GetParent( __uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory) );
+        adapter->Release();
     }
+    dxgiDevice->Release();
     if (FAILED(hr))
         return hr;
 
     // Create swap chain
     IDXGIFactory2* dxgiFactory2 = nullptr;
     hr = dxgiFactory->QueryInterface( __uuidof(IDXGIFactory2), reinterpret_cast<void**>(&dxgiFactory2) );
+
     if ( dxgiFactory2 )
     {
         // DirectX 11.1 or later
@@ -272,25 +260,6 @@ HRESULT InitDevice()
         }
 
         dxgiFactory2->Release();
-    }
-    else
-    {
-        // DirectX 11.0 systems
-        DXGI_SWAP_CHAIN_DESC sd;
-        ZeroMemory(&sd, sizeof(sd));
-        sd.BufferCount = 1;
-        sd.BufferDesc.Width = width;
-        sd.BufferDesc.Height = height;
-        sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        sd.BufferDesc.RefreshRate.Numerator = 60;
-        sd.BufferDesc.RefreshRate.Denominator = 1;
-        sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-        sd.OutputWindow = g_hWnd;
-        sd.SampleDesc.Count = 1;
-        sd.SampleDesc.Quality = 0;
-        sd.Windowed = TRUE;
-
-        hr = dxgiFactory->CreateSwapChain( g_pd3dDevice, &sd, &g_pSwapChain );
     }
 
     // Note this tutorial doesn't handle full-screen swapchains so we block the ALT+ENTER shortcut
@@ -356,10 +325,7 @@ HRESULT InitDevice()
 	auto blobVS = DX::ReadData(L"Transform_VS.cso");
     hr = g_pd3dDevice->CreateVertexShader(blobVS.data(), blobVS.size(), nullptr, &g_pVertexShader );
     if( FAILED( hr ) )
-    {
-		MessageBox(nullptr, L"The Vertex Shader cannot be created.", L"Error", MB_OK);
         return hr;
-    }
 
     // Define the input layout
     D3D11_INPUT_ELEMENT_DESC layout[] =

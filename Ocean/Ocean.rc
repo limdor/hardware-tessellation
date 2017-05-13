@@ -107,8 +107,8 @@ END
 
 STRINGTABLE  
 BEGIN
-   IDC_TUTORIAL1   "Tutorial07"
-   IDS_APP_TITLE       "Tutorial07"
+   IDC_TUTORIAL1   "Ocean"
+   IDS_APP_TITLE       "Ocean"
 END
 
 #endif

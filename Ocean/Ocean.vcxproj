@@ -153,6 +153,7 @@
     </PostBuildEvent>
     <FxCompile>
       <ShaderType>Effect</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|X64'">
@@ -191,6 +192,9 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -232,6 +236,9 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|X64'">
     <ClCompile>
@@ -271,6 +278,9 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">
     <ClCompile>
@@ -311,6 +321,9 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|X64'">
     <ClCompile>
@@ -350,6 +363,9 @@
       <Command>
       </Command>
     </PostBuildEvent>
+    <FxCompile>
+      <ShaderModel>5.0</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <FxCompile Include="Normals_PS.hlsl">
@@ -371,6 +387,48 @@
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">psNormal</EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">4.1</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="Ocean_DS.hlsl">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">dsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Domain</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">dsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Domain</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">dsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">Domain</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Domain</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Domain</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">dsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Domain</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Ocean_HS.hlsl">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">hsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Hull</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">hsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Hull</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">hsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">Hull</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">hsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Hull</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Hull</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">hsOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Hull</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Ocean_PS.hlsl">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">psOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">psOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">psOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">psOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">psOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">psOcean</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">Pixel</ShaderType>
     </FxCompile>
     <FxCompile Include="Textured_PS.hlsl">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">psTextured</EntryPointName>
@@ -415,19 +473,23 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDSTextureLoader.cpp" />
-    <ClCompile Include="Tutorial07.cpp" />
+    <ClCompile Include="Ocean.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="ReadData.h" />
     <CLInclude Include="resource.h" />
-    <ResourceCompile Include="Tutorial07.rc" />
+    <ClInclude Include="resource1.h" />
+    <ClInclude Include="waves.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="seafloor.dds" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Input_PS.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Ocean.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

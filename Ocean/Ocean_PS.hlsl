@@ -16,12 +16,8 @@ float time;
 //Background
 TextureCube envMap;
 
-SamplerState linearSampler
-{
-	Filter = MIN_MAG_MIP_LINEAR;
-	AddressU = Wrap;
-	AddressV = Wrap;
-};
+SamplerState linearSampler : register(s0);
+
 
 //------------------------------------------------------------
 // Domain shader section

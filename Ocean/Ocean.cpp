@@ -33,6 +33,11 @@ struct SimpleVertex
     XMFLOAT2 Tex;
 };
 
+struct TessellationVertex
+{
+	XMFLOAT3 Pos;
+};
+
 struct CBNeverChanges
 {
     XMMATRIX mView;
@@ -67,9 +72,12 @@ ID3D11RenderTargetView*             g_pRenderTargetView = nullptr;
 ID3D11Texture2D*                    g_pDepthStencil = nullptr;
 ID3D11DepthStencilView*             g_pDepthStencilView = nullptr;
 ID3D11VertexShader*                 g_pVertexShader = nullptr;
+ID3D11VertexShader*                 g_pOceanVertexShader = nullptr;
 ID3D11PixelShader*                  g_pPixelShader = nullptr;
 ID3D11InputLayout*                  g_pVertexLayout = nullptr;
+ID3D11InputLayout*                  g_pTessVertexLayout = nullptr;
 ID3D11Buffer*                       g_pVertexBuffer = nullptr;
+ID3D11Buffer*                       g_pTessVertexBuffer = nullptr;
 ID3D11Buffer*                       g_pIndexBuffer = nullptr;
 ID3D11Buffer*                       g_pCBNeverChanges = nullptr;
 ID3D11Buffer*                       g_pCBChangeOnResize = nullptr;
@@ -80,6 +88,32 @@ XMMATRIX                            g_World;
 XMMATRIX                            g_View;
 XMMATRIX                            g_Projection;
 XMFLOAT4                            g_vMeshColor( 0.7f, 0.7f, 0.7f, 1.0f );
+
+const float SIZE_TERRAIN = 2000.0f;
+const unsigned int SQRT_NUMBER_OF_PATCHS = 8;
+
+//Height map and normal/height map textures
+//const LPCWSTR TEXTURE_HEIGHT_NAME = L"media\\terrain1(0.5K).png";
+//const LPCWSTR TEXTURE_NORMAL_NAME = L"media\\terrain1NormalHeight(0.5K).dds";
+const LPCWSTR TEXTURE_HEIGHT_NAME = L"..\\media\\terrain1(1K).png";
+const LPCWSTR TEXTURE_NORMAL_NAME = L"..\\media\\terrain1NormalHeight(1K).dds";
+//const LPCWSTR TEXTURE_HEIGHT_NAME = L"media\\terrain1(2K).png";
+//const LPCWSTR TEXTURE_NORMAL_NAME = L"media\\terrain1NormalHeight(2K).dds";
+//const LPCWSTR TEXTURE_HEIGHT_NAME = L"media\\terrain1(4K).png";
+//const LPCWSTR TEXTURE_NORMAL_NAME = L"media\\terrain1NormalHeight(4K).dds";
+
+//Terrain Texture
+const LPCWSTR textureTerrainName = L"..\\media\\rock.jpg";
+
+//Texture size
+//const UINT textureWidth = 512;
+//const UINT textureHeight = 512;
+const UINT textureWidth = 1024;
+const UINT textureHeight = 1024;
+//const UINT textureWidth = 2048;
+//const UINT textureHeight = 2048;
+//const UINT textureWidth = 4096;
+//const UINT textureHeight = 4096;
 
 
 //--------------------------------------------------------------------------------------
@@ -321,87 +355,148 @@ HRESULT InitDevice()
     vp.TopLeftY = 0;
     g_pImmediateContext->RSSetViewports( 1, &vp );
 
-    // Create the vertex shader
-	auto blobVS = DX::ReadData(L"Transform_VS.cso");
-    hr = g_pd3dDevice->CreateVertexShader(blobVS.data(), blobVS.size(), nullptr, &g_pVertexShader );
+	//-------------------------------------------
+	//   Create vertex buffer for the cube
+	//-------------------------------------------
+	SimpleVertex vertices[] =
+	{
+		// Upper cover
+		{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
+
+		// Lower cover								  			    
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
+
+		// Left cover
+		{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
+
+		// Right cover
+		{ XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
+
+		// Back cover
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
+		{ XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
+
+		// Front cover
+		{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+	};
+
+	D3D11_BUFFER_DESC vertexBufferDesc;
+	ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
+	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	vertexBufferDesc.ByteWidth = sizeof(SimpleVertex) * 24;
+	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vertexBufferDesc.CPUAccessFlags = 0;
+	D3D11_SUBRESOURCE_DATA vBInitData;
+	ZeroMemory(&vBInitData, sizeof(vBInitData));
+	vBInitData.pSysMem = vertices;
+	hr = g_pd3dDevice->CreateBuffer(&vertexBufferDesc, &vBInitData, &g_pVertexBuffer);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
+	//   Create the transform vertex shader
+	//-------------------------------------------
+	auto blobTransformVS = DX::ReadData(L"Transform_VS.cso");
+    hr = g_pd3dDevice->CreateVertexShader(blobTransformVS.data(), blobTransformVS.size(), nullptr, &g_pVertexShader );
     if( FAILED( hr ) )
         return hr;
 
-    // Define the input layout
-    D3D11_INPUT_ELEMENT_DESC layout[] =
+	//-------------------------------------------
+	//   Create the simple vertex buffer layout
+	//-------------------------------------------
+    D3D11_INPUT_ELEMENT_DESC simpleVertexLayout[] =
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "TEXCOORD", 0,    DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
-    UINT numElements = ARRAYSIZE( layout );
-
-    // Create the input layout
-    hr = g_pd3dDevice->CreateInputLayout( layout, numElements, blobVS.data(), blobVS.size(), &g_pVertexLayout );
+    UINT numElements = ARRAYSIZE(simpleVertexLayout);
+    hr = g_pd3dDevice->CreateInputLayout(simpleVertexLayout, numElements, blobTransformVS.data(), blobTransformVS.size(), &g_pVertexLayout );
     if( FAILED( hr ) )
         return hr;
+
+	//-------------------------------------------
+	//   Create vertex buffer for tessallation
+	//-------------------------------------------
+	TessellationVertex tessallationVertexBuffer[SQRT_NUMBER_OF_PATCHS * SQRT_NUMBER_OF_PATCHS * 4];
+
+	unsigned int index = 0;
+	float bigInc = SIZE_TERRAIN / SQRT_NUMBER_OF_PATCHS;
+	for (unsigned int i = 0; i < SQRT_NUMBER_OF_PATCHS; ++i)
+	{
+		for (unsigned int j = 0; j < SQRT_NUMBER_OF_PATCHS; ++j)
+		{
+			//Here we calculate 4 control points
+			tessallationVertexBuffer[index + 0].Pos = XMFLOAT3(bigInc * i, 0.0f, bigInc * j);
+			tessallationVertexBuffer[index + 1].Pos = XMFLOAT3(bigInc * i, 0.0f, bigInc * (j + 1));
+			tessallationVertexBuffer[index + 2].Pos = XMFLOAT3(bigInc * (i + 1), 0.0f, bigInc * (j + 1));
+			tessallationVertexBuffer[index + 3].Pos = XMFLOAT3(bigInc * (i + 1), 0.0f, bigInc * j);
+			index += 4;
+		}
+	}
+
+	D3D11_BUFFER_DESC tessVertexBufferDesc;
+	ZeroMemory(&tessVertexBufferDesc, sizeof(tessVertexBufferDesc));
+	tessVertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	tessVertexBufferDesc.ByteWidth = sizeof(TessellationVertex) * SQRT_NUMBER_OF_PATCHS * SQRT_NUMBER_OF_PATCHS * 4;
+	tessVertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	tessVertexBufferDesc.CPUAccessFlags = 0;
+	D3D11_SUBRESOURCE_DATA tessVBInitData;
+	ZeroMemory(&tessVBInitData, sizeof(tessVBInitData));
+	tessVBInitData.pSysMem = tessallationVertexBuffer;
+	hr = g_pd3dDevice->CreateBuffer(&tessVertexBufferDesc, &tessVBInitData, &g_pTessVertexBuffer);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
+	//   Create the transform vertex shader
+	//-------------------------------------------
+	auto blobOceanVS = DX::ReadData(L"Ocean_VS.cso");
+	hr = g_pd3dDevice->CreateVertexShader(blobOceanVS.data(), blobOceanVS.size(), nullptr, &g_pOceanVertexShader);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------------
+	//   Create the tessellation vertex buffer layout
+	//-------------------------------------------------
+	D3D11_INPUT_ELEMENT_DESC tessVertexLayout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	numElements = ARRAYSIZE(tessVertexLayout);
+	hr = g_pd3dDevice->CreateInputLayout(tessVertexLayout, numElements, blobOceanVS.data(), blobOceanVS.size(), &g_pTessVertexLayout);
+	if (FAILED(hr))
+		return hr;
 
     // Set the input layout
     g_pImmediateContext->IASetInputLayout( g_pVertexLayout );
 
-    // Create the pixel shader
+	//-------------------------------------------
+	//   Create the textured pixel shader
+	//-------------------------------------------
 	auto blobPS = DX::ReadData(L"Textured_PS.cso");
     hr = g_pd3dDevice->CreatePixelShader( blobPS.data(), blobPS.size(), nullptr, &g_pPixelShader );
     if( FAILED( hr ) )
         return hr;
 
-    // Create vertex buffer
-    SimpleVertex vertices[] =
-    {
-		// Upper cover
-        { XMFLOAT3( -1.0f,  1.0f, -1.0f ), XMFLOAT3(  0.0f,  1.0f,  0.0f ), XMFLOAT2( 1.0f, 0.0f ) },
-        { XMFLOAT3(  1.0f,  1.0f, -1.0f ), XMFLOAT3(  0.0f,  1.0f,  0.0f ), XMFLOAT2( 0.0f, 0.0f ) },
-        { XMFLOAT3(  1.0f,  1.0f,  1.0f ), XMFLOAT3(  0.0f,  1.0f,  0.0f ), XMFLOAT2( 0.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f,  1.0f,  1.0f ), XMFLOAT3(  0.0f,  1.0f,  0.0f ), XMFLOAT2( 1.0f, 1.0f ) },
-													  			    
-		// Lower cover								  			    
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT3(  0.0f, -1.0f,  0.0f ), XMFLOAT2( 0.0f, 0.0f ) },
-        { XMFLOAT3(  1.0f, -1.0f, -1.0f ), XMFLOAT3(  0.0f, -1.0f,  0.0f ), XMFLOAT2( 1.0f, 0.0f ) },
-        { XMFLOAT3(  1.0f, -1.0f,  1.0f ), XMFLOAT3(  0.0f, -1.0f,  0.0f ), XMFLOAT2( 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f,  1.0f ), XMFLOAT3(  0.0f, -1.0f,  0.0f ), XMFLOAT2( 0.0f, 1.0f ) },
-
-		// Left cover
-        { XMFLOAT3( -1.0f, -1.0f,  1.0f ), XMFLOAT3( -1.0f,  0.0f,  0.0f ), XMFLOAT2( 0.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT3( -1.0f,  0.0f,  0.0f ), XMFLOAT2( 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f,  1.0f, -1.0f ), XMFLOAT3( -1.0f,  0.0f,  0.0f ), XMFLOAT2( 1.0f, 0.0f ) },
-        { XMFLOAT3( -1.0f,  1.0f,  1.0f ), XMFLOAT3( -1.0f,  0.0f,  0.0f ), XMFLOAT2( 0.0f, 0.0f ) },
-
-		// Right cover
-        { XMFLOAT3(  1.0f, -1.0f,  1.0f ), XMFLOAT3(  1.0f,  0.0f,  0.0f ), XMFLOAT2( 1.0f, 1.0f ) },
-        { XMFLOAT3(  1.0f, -1.0f, -1.0f ), XMFLOAT3(  1.0f,  0.0f,  0.0f ), XMFLOAT2( 0.0f, 1.0f ) },
-        { XMFLOAT3(  1.0f,  1.0f, -1.0f ), XMFLOAT3(  1.0f,  0.0f,  0.0f ), XMFLOAT2( 0.0f, 0.0f ) },
-        { XMFLOAT3(  1.0f,  1.0f,  1.0f ), XMFLOAT3(  1.0f,  0.0f,  0.0f ), XMFLOAT2( 1.0f, 0.0f ) },
-
-		// Back cover
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT3(  0.0f,  0.0f,  1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
-        { XMFLOAT3(  1.0f, -1.0f, -1.0f ), XMFLOAT3(  0.0f,  0.0f,  1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
-        { XMFLOAT3(  1.0f,  1.0f, -1.0f ), XMFLOAT3(  0.0f,  0.0f,  1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
-        { XMFLOAT3( -1.0f,  1.0f, -1.0f ), XMFLOAT3(  0.0f,  0.0f,  1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
-
-		// Front cover
-        { XMFLOAT3( -1.0f, -1.0f,  1.0f ), XMFLOAT3(  0.0f,  0.0f, -1.0f ), XMFLOAT2( 1.0f, 1.0f ) },
-        { XMFLOAT3(  1.0f, -1.0f,  1.0f ), XMFLOAT3(  0.0f,  0.0f, -1.0f ), XMFLOAT2( 0.0f, 1.0f ) },
-        { XMFLOAT3(  1.0f,  1.0f,  1.0f ), XMFLOAT3(  0.0f,  0.0f, -1.0f ), XMFLOAT2( 0.0f, 0.0f ) },
-        { XMFLOAT3( -1.0f,  1.0f,  1.0f ), XMFLOAT3(  0.0f,  0.0f, -1.0f ), XMFLOAT2( 1.0f, 0.0f ) },
-    };
-
-    D3D11_BUFFER_DESC bd;
-    ZeroMemory( &bd, sizeof(bd) );
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof( SimpleVertex ) * 24;
-    bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    bd.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA InitData;
-    ZeroMemory( &InitData, sizeof(InitData) );
-    InitData.pSysMem = vertices;
-    hr = g_pd3dDevice->CreateBuffer( &bd, &InitData, &g_pVertexBuffer );
-    if( FAILED( hr ) )
-        return hr;
+	
 
     // Set vertex buffer
     UINT stride = sizeof( SimpleVertex );
@@ -431,10 +526,14 @@ HRESULT InitDevice()
         23,20,22
     };
 
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof( WORD ) * 36;
     bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
     bd.CPUAccessFlags = 0;
+	D3D11_SUBRESOURCE_DATA InitData;
+	ZeroMemory(&InitData, sizeof(InitData));
     InitData.pSysMem = indices;
     hr = g_pd3dDevice->CreateBuffer( &bd, &InitData, &g_pIndexBuffer );
     if( FAILED( hr ) )
@@ -521,9 +620,12 @@ void CleanupDevice()
     if( g_pCBChangeOnResize ) g_pCBChangeOnResize->Release();
     if( g_pCBChangesEveryFrame ) g_pCBChangesEveryFrame->Release();
     if( g_pVertexBuffer ) g_pVertexBuffer->Release();
+	if( g_pTessVertexBuffer ) g_pTessVertexBuffer->Release();
     if( g_pIndexBuffer ) g_pIndexBuffer->Release();
     if( g_pVertexLayout ) g_pVertexLayout->Release();
+	if( g_pTessVertexLayout ) g_pTessVertexLayout->Release();
     if( g_pVertexShader ) g_pVertexShader->Release();
+	if (g_pOceanVertexShader ) g_pOceanVertexShader->Release();
     if( g_pPixelShader ) g_pPixelShader->Release();
     if( g_pDepthStencil ) g_pDepthStencil->Release();
     if( g_pDepthStencilView ) g_pDepthStencilView->Release();

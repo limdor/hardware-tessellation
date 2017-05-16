@@ -8,6 +8,7 @@ SamplerState samLinear : register(s0);
 
 cbuffer cbChangesEveryFrame : register(b2)
 {
+	matrix World;
 	float4 vMeshColor;
 };
 

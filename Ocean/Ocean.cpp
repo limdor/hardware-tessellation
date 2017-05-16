@@ -64,11 +64,8 @@ HWND                                              g_hWnd = nullptr;
 D3D_DRIVER_TYPE                                   g_driverType = D3D_DRIVER_TYPE_NULL;
 D3D_FEATURE_LEVEL                                 g_featureLevel = D3D_FEATURE_LEVEL_11_0;
 Microsoft::WRL::ComPtr<ID3D11Device>              g_pd3dDevice = nullptr;
-Microsoft::WRL::ComPtr<ID3D11Device1>             g_pd3dDevice1 = nullptr;
 Microsoft::WRL::ComPtr<ID3D11DeviceContext>       g_pImmediateContext = nullptr;
-Microsoft::WRL::ComPtr<ID3D11DeviceContext1>      g_pImmediateContext1 = nullptr;
 Microsoft::WRL::ComPtr<IDXGISwapChain>            g_pSwapChain = nullptr;
-Microsoft::WRL::ComPtr<IDXGISwapChain1>           g_pSwapChain1 = nullptr;
 Microsoft::WRL::ComPtr<ID3D11RenderTargetView>    g_pRenderTargetView = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Texture2D>           g_pDepthStencil = nullptr;
 Microsoft::WRL::ComPtr<ID3D11DepthStencilView>    g_pDepthStencilView = nullptr;
@@ -217,11 +214,19 @@ HRESULT InitDevice()
 {
     HRESULT hr = S_OK;
 
+
+	//-------------------------------------------
+	//  Obtain window width and height
+	//-------------------------------------------
     RECT rc;
     GetClientRect( g_hWnd, &rc );
     UINT width = rc.right - rc.left;
     UINT height = rc.bottom - rc.top;
 
+
+	//-------------------------------------------
+	//  Create device and immediate context
+	//-------------------------------------------
     UINT createDeviceFlags = 0;
 #ifdef _DEBUG
     createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -252,7 +257,10 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
-    // Obtain DXGI factory from device (since we used nullptr for pAdapter above)
+
+	//-------------------------------------------
+	//  Obtain DXGI factory from device (since we used nullptr for pAdapter above)
+	//-------------------------------------------
 	Microsoft::WRL::ComPtr<IDXGIFactory2> dxgiFactory2;
 	{
 		Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDevice;
@@ -275,15 +283,24 @@ HRESULT InitDevice()
 			return hr;
 	}
 
-    // DirectX 11.1 or later
+
+	//-------------------------------------------
+	//  Check DirectX 11.1 or later available
+	//-------------------------------------------
+	Microsoft::WRL::ComPtr<ID3D11Device1> g_pd3dDevice1 = nullptr;
     hr = g_pd3dDevice.As(&g_pd3dDevice1);
 	if (FAILED(hr))
 		return hr;
 
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext1> g_pImmediateContext1 = nullptr;
 	hr = g_pImmediateContext.As(&g_pImmediateContext1);
 	if (FAILED(hr))
 		return hr;
 
+
+	//-------------------------------------------
+	//  Create swap chain
+	//-------------------------------------------
     DXGI_SWAP_CHAIN_DESC1 sd;
     ZeroMemory(&sd, sizeof(sd));
     sd.Width = width;
@@ -294,7 +311,8 @@ HRESULT InitDevice()
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     sd.BufferCount = 1;
 
-    hr = dxgiFactory2->CreateSwapChainForHwnd( g_pd3dDevice.Get(), g_hWnd, &sd, nullptr, nullptr, g_pSwapChain1.GetAddressOf() );
+	Microsoft::WRL::ComPtr<IDXGISwapChain1> g_pSwapChain1 = nullptr;
+    hr = dxgiFactory2->CreateSwapChainForHwnd( g_pd3dDevice.Get(), g_hWnd, &sd, nullptr, nullptr, &g_pSwapChain1 );
 	if (FAILED(hr))
 		return hr;
 
@@ -302,10 +320,15 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
+	//-------------------------------------------
+	//   Block Alt+Enter shortcut
+	//-------------------------------------------
     // Note this tutorial doesn't handle full-screen swapchains so we block the ALT+ENTER shortcut
     hr = dxgiFactory2->MakeWindowAssociation( g_hWnd, DXGI_MWA_NO_ALT_ENTER );
     if (FAILED(hr))
         return hr;
+
 
 	//-------------------------------------------
 	//   Create a render target view
@@ -318,6 +341,7 @@ HRESULT InitDevice()
     hr = g_pd3dDevice->CreateRenderTargetView( pBackBuffer.Get(), nullptr, g_pRenderTargetView.GetAddressOf() );
     if( FAILED( hr ) )
         return hr;
+
 
 	//-------------------------------------------
 	//   Create depth stencil texture
@@ -339,6 +363,7 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
+
 	//-------------------------------------------
 	//   Create the depth stencil view
 	//-------------------------------------------
@@ -350,6 +375,7 @@ HRESULT InitDevice()
     hr = g_pd3dDevice->CreateDepthStencilView( g_pDepthStencil.Get(), &descDSV, g_pDepthStencilView.ReleaseAndGetAddressOf() );
     if( FAILED( hr ) )
         return hr;
+
 
     //-------------------------------------------
 	//   Create vertex buffer for the cube
@@ -406,6 +432,7 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
 	//-------------------------------------------
 	//   Create index buffer for the cube
 	//-------------------------------------------
@@ -443,6 +470,7 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
 	//-------------------------------------------
 	//   Create the transform vertex shader
 	//-------------------------------------------
@@ -450,6 +478,7 @@ HRESULT InitDevice()
     hr = g_pd3dDevice->CreateVertexShader(blobTransformVS.data(), blobTransformVS.size(), nullptr, &g_pVertexShader );
     if( FAILED( hr ) )
         return hr;
+
 
 	//-------------------------------------------
 	//   Create the simple vertex buffer layout
@@ -465,6 +494,7 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
+
 	//-------------------------------------------
 	//   Create the textured pixel shader
 	//-------------------------------------------
@@ -472,6 +502,7 @@ HRESULT InitDevice()
 	hr = g_pd3dDevice->CreatePixelShader(blobPS.data(), blobPS.size(), nullptr, &g_pPixelShader);
 	if (FAILED(hr))
 		return hr;
+
 
 	//-------------------------------------------
 	//   Create vertex buffer for tessallation
@@ -506,6 +537,7 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
 	//-------------------------------------------
 	//   Create the ocean vertex shader
 	//-------------------------------------------
@@ -513,6 +545,7 @@ HRESULT InitDevice()
 	hr = g_pd3dDevice->CreateVertexShader(blobOceanVS.data(), blobOceanVS.size(), nullptr, &g_pOceanVertexShader);
 	if (FAILED(hr))
 		return hr;
+
 
 	//-------------------------------------------------
 	//   Create the tessellation vertex buffer layout
@@ -526,6 +559,7 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
 	//-------------------------------------------
 	//   Create the ocean hull shader
 	//-------------------------------------------
@@ -533,6 +567,7 @@ HRESULT InitDevice()
 	hr = g_pd3dDevice->CreateHullShader(blobOceanHS.data(), blobOceanHS.size(), nullptr, &g_pOceanHullShader);
 	if (FAILED(hr))
 		return hr;
+
 
 	//-------------------------------------------
 	//   Create the ocean domain shader
@@ -542,6 +577,7 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
 	//-------------------------------------------
 	//   Create the ocean pixel shader
 	//-------------------------------------------
@@ -550,6 +586,7 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
 	//-------------------------------------------
 	//   Create the ocean normal pixel shader
 	//-------------------------------------------
@@ -557,6 +594,7 @@ HRESULT InitDevice()
 	hr = g_pd3dDevice->CreatePixelShader(blobOceanNormalPS.data(), blobOceanNormalPS.size(), nullptr, &g_pOceanNormalPixelShader);
 	if (FAILED(hr))
 		return hr;
+
 
 	//-------------------------------------------
 	//   Create the ocean wired pixel shader

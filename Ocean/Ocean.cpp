@@ -73,6 +73,11 @@ ID3D11Texture2D*                    g_pDepthStencil = nullptr;
 ID3D11DepthStencilView*             g_pDepthStencilView = nullptr;
 ID3D11VertexShader*                 g_pVertexShader = nullptr;
 ID3D11VertexShader*                 g_pOceanVertexShader = nullptr;
+ID3D11HullShader*                   g_pOceanHullShader = nullptr;
+ID3D11DomainShader*                 g_pOceanDomainShader = nullptr;
+ID3D11PixelShader*                  g_pOceanPixelShader = nullptr;
+ID3D11PixelShader*                  g_pOceanNormalPixelShader = nullptr;
+ID3D11PixelShader*                  g_pOceanWiredPixelShader = nullptr;
 ID3D11PixelShader*                  g_pPixelShader = nullptr;
 ID3D11InputLayout*                  g_pVertexLayout = nullptr;
 ID3D11InputLayout*                  g_pTessVertexLayout = nullptr;
@@ -298,13 +303,13 @@ HRESULT InitDevice()
 
     // Note this tutorial doesn't handle full-screen swapchains so we block the ALT+ENTER shortcut
     dxgiFactory->MakeWindowAssociation( g_hWnd, DXGI_MWA_NO_ALT_ENTER );
-
     dxgiFactory->Release();
-
     if (FAILED(hr))
         return hr;
 
-    // Create a render target view
+	//-------------------------------------------
+	//   Create a render target view
+	//-------------------------------------------
     ID3D11Texture2D* pBackBuffer = nullptr;
     hr = g_pSwapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), reinterpret_cast<void**>( &pBackBuffer ) );
     if( FAILED( hr ) )
@@ -315,7 +320,9 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
-    // Create depth stencil texture
+	//-------------------------------------------
+	//   Create depth stencil texture
+	//-------------------------------------------
     D3D11_TEXTURE2D_DESC descDepth;
     ZeroMemory( &descDepth, sizeof(descDepth) );
     descDepth.Width = width;
@@ -333,7 +340,9 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
-    // Create the depth stencil view
+	//-------------------------------------------
+	//   Create the depth stencil view
+	//-------------------------------------------
     D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
     ZeroMemory( &descDSV, sizeof(descDSV) );
     descDSV.Format = descDepth.Format;
@@ -343,19 +352,7 @@ HRESULT InitDevice()
     if( FAILED( hr ) )
         return hr;
 
-    g_pImmediateContext->OMSetRenderTargets( 1, &g_pRenderTargetView, g_pDepthStencilView );
-
-    // Setup the viewport
-    D3D11_VIEWPORT vp;
-    vp.Width = (FLOAT)width;
-    vp.Height = (FLOAT)height;
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    vp.TopLeftX = 0;
-    vp.TopLeftY = 0;
-    g_pImmediateContext->RSSetViewports( 1, &vp );
-
-	//-------------------------------------------
+    //-------------------------------------------
 	//   Create vertex buffer for the cube
 	//-------------------------------------------
 	SimpleVertex vertices[] =
@@ -411,6 +408,43 @@ HRESULT InitDevice()
 		return hr;
 
 	//-------------------------------------------
+	//   Create index buffer for the cube
+	//-------------------------------------------
+	WORD indices[] =
+	{
+		3,1,0,
+		2,1,3,
+
+		6,4,5,
+		7,4,6,
+
+		11,9,8,
+		10,9,11,
+
+		14,12,13,
+		15,12,14,
+
+		19,17,16,
+		18,17,19,
+
+		22,20,21,
+		23,20,22
+	};
+
+	D3D11_BUFFER_DESC indexBufferDesc;
+	ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	indexBufferDesc.ByteWidth = sizeof(WORD) * 36;
+	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	indexBufferDesc.CPUAccessFlags = 0;
+	D3D11_SUBRESOURCE_DATA indexBufferInitData;
+	ZeroMemory(&indexBufferInitData, sizeof(indexBufferInitData));
+	indexBufferInitData.pSysMem = indices;
+	hr = g_pd3dDevice->CreateBuffer(&indexBufferDesc, &indexBufferInitData, &g_pIndexBuffer);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
 	//   Create the transform vertex shader
 	//-------------------------------------------
 	auto blobTransformVS = DX::ReadData(L"Transform_VS.cso");
@@ -431,6 +465,14 @@ HRESULT InitDevice()
     hr = g_pd3dDevice->CreateInputLayout(simpleVertexLayout, numElements, blobTransformVS.data(), blobTransformVS.size(), &g_pVertexLayout );
     if( FAILED( hr ) )
         return hr;
+
+	//-------------------------------------------
+	//   Create the textured pixel shader
+	//-------------------------------------------
+	auto blobPS = DX::ReadData(L"Textured_PS.cso");
+	hr = g_pd3dDevice->CreatePixelShader(blobPS.data(), blobPS.size(), nullptr, &g_pPixelShader);
+	if (FAILED(hr))
+		return hr;
 
 	//-------------------------------------------
 	//   Create vertex buffer for tessallation
@@ -466,7 +508,7 @@ HRESULT InitDevice()
 		return hr;
 
 	//-------------------------------------------
-	//   Create the transform vertex shader
+	//   Create the ocean vertex shader
 	//-------------------------------------------
 	auto blobOceanVS = DX::ReadData(L"Ocean_VS.cso");
 	hr = g_pd3dDevice->CreateVertexShader(blobOceanVS.data(), blobOceanVS.size(), nullptr, &g_pOceanVertexShader);
@@ -485,59 +527,65 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+	//-------------------------------------------
+	//   Create the ocean hull shader
+	//-------------------------------------------
+	auto blobOceanHS = DX::ReadData(L"Ocean_HS.cso");
+	hr = g_pd3dDevice->CreateHullShader(blobOceanHS.data(), blobOceanHS.size(), nullptr, &g_pOceanHullShader);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
+	//   Create the ocean domain shader
+	//-------------------------------------------
+	auto blobOceanDS = DX::ReadData(L"Ocean_DS.cso");
+	hr = g_pd3dDevice->CreateDomainShader(blobOceanDS.data(), blobOceanDS.size(), nullptr, &g_pOceanDomainShader);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
+	//   Create the ocean pixel shader
+	//-------------------------------------------
+	auto blobOceanPS = DX::ReadData(L"Ocean_PS.cso");
+	hr = g_pd3dDevice->CreatePixelShader(blobOceanPS.data(), blobOceanPS.size(), nullptr, &g_pOceanPixelShader);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
+	//   Create the ocean normal pixel shader
+	//-------------------------------------------
+	auto blobOceanNormalPS = DX::ReadData(L"Ocean_Normal_PS.cso");
+	hr = g_pd3dDevice->CreatePixelShader(blobOceanNormalPS.data(), blobOceanNormalPS.size(), nullptr, &g_pOceanNormalPixelShader);
+	if (FAILED(hr))
+		return hr;
+
+	//-------------------------------------------
+	//   Create the ocean wired pixel shader
+	//-------------------------------------------
+	auto blobOceanWiredPS = DX::ReadData(L"Ocean_Wired_PS.cso");
+	hr = g_pd3dDevice->CreatePixelShader(blobOceanWiredPS.data(), blobOceanWiredPS.size(), nullptr, &g_pOceanWiredPixelShader);
+	if (FAILED(hr))
+		return hr;
+
+	g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, g_pDepthStencilView);
+
+	// Setup the viewport
+	D3D11_VIEWPORT vp;
+	vp.Width = (FLOAT)width;
+	vp.Height = (FLOAT)height;
+	vp.MinDepth = 0.0f;
+	vp.MaxDepth = 1.0f;
+	vp.TopLeftX = 0;
+	vp.TopLeftY = 0;
+	g_pImmediateContext->RSSetViewports(1, &vp);
+
     // Set the input layout
     g_pImmediateContext->IASetInputLayout( g_pVertexLayout );
-
-	//-------------------------------------------
-	//   Create the textured pixel shader
-	//-------------------------------------------
-	auto blobPS = DX::ReadData(L"Textured_PS.cso");
-    hr = g_pd3dDevice->CreatePixelShader( blobPS.data(), blobPS.size(), nullptr, &g_pPixelShader );
-    if( FAILED( hr ) )
-        return hr;
-
-	
 
     // Set vertex buffer
     UINT stride = sizeof( SimpleVertex );
     UINT offset = 0;
     g_pImmediateContext->IASetVertexBuffers( 0, 1, &g_pVertexBuffer, &stride, &offset );
-
-    // Create index buffer
-    // Create vertex buffer
-    WORD indices[] =
-    {
-        3,1,0,
-        2,1,3,
-
-        6,4,5,
-        7,4,6,
-
-        11,9,8,
-        10,9,11,
-
-        14,12,13,
-        15,12,14,
-
-        19,17,16,
-        18,17,19,
-
-        22,20,21,
-        23,20,22
-    };
-
-	D3D11_BUFFER_DESC bd;
-	ZeroMemory(&bd, sizeof(bd));
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof( WORD ) * 36;
-    bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    bd.CPUAccessFlags = 0;
-	D3D11_SUBRESOURCE_DATA InitData;
-	ZeroMemory(&InitData, sizeof(InitData));
-    InitData.pSysMem = indices;
-    hr = g_pd3dDevice->CreateBuffer( &bd, &InitData, &g_pIndexBuffer );
-    if( FAILED( hr ) )
-        return hr;
 
     // Set index buffer
     g_pImmediateContext->IASetIndexBuffer( g_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0 );
@@ -546,6 +594,8 @@ HRESULT InitDevice()
     g_pImmediateContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 
     // Create the constant buffers
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof(CBNeverChanges);
     bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
@@ -625,7 +675,12 @@ void CleanupDevice()
     if( g_pVertexLayout ) g_pVertexLayout->Release();
 	if( g_pTessVertexLayout ) g_pTessVertexLayout->Release();
     if( g_pVertexShader ) g_pVertexShader->Release();
-	if (g_pOceanVertexShader ) g_pOceanVertexShader->Release();
+	if( g_pOceanVertexShader ) g_pOceanVertexShader->Release();
+	if( g_pOceanHullShader ) g_pOceanHullShader->Release();
+	if( g_pOceanDomainShader ) g_pOceanDomainShader->Release();
+	if( g_pOceanPixelShader ) g_pOceanPixelShader->Release();
+	if( g_pOceanNormalPixelShader ) g_pOceanNormalPixelShader->Release();
+	if( g_pOceanWiredPixelShader ) g_pOceanWiredPixelShader->Release();
     if( g_pPixelShader ) g_pPixelShader->Release();
     if( g_pDepthStencil ) g_pDepthStencil->Release();
     if( g_pDepthStencilView ) g_pDepthStencilView->Release();

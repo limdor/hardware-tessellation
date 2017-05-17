@@ -41,20 +41,41 @@ struct TessellationVertex
 
 struct CBNeverChanges
 {
-    XMMATRIX mView;
+    XMMATRIX mView; // 64 bytes
 };
 
 struct CBChangeOnResize
 {
-    XMMATRIX mProjection;
+    XMMATRIX mProjection; // 64 bytes
 };
 
+__declspec(align(16))
 struct CBChangesEveryFrame
 {
-    XMMATRIX mWorld;
-    XMFLOAT4 vMeshColor;
+    XMMATRIX mWorld;      // 64 bytes
+    XMFLOAT3 vMeshColor;  // 12 bytes
+	float time;           // 4 bytes
 };
 
+__declspec(align(16))
+struct CBTransform
+{
+	XMMATRIX viewProjMatrix;          // 64 bytes
+	XMMATRIX orientProjMatrixInverse; // 64 bytes
+	XMFLOAT3 eyePosition;             // 12 bytes
+	char _pad[4];                     // 4 bytes (padding to make sizeof(CBTransform) multiple of 16
+};
+
+__declspec(align(16))
+struct CBConfiguration
+{
+	float minDistance;    // 4 bytes
+    float maxDistance;    // 4 bytes
+    float minTessExp;     // 4 bytes
+    float maxTessExp;     // 4 bytes
+    bool applyCorrection; // 1 byte
+	char _pad[15];        // 15 bytes (padding to make sizeof(CBConfiguration) multiple of 16
+};
 
 //--------------------------------------------------------------------------------------
 // Global Variables
@@ -85,11 +106,17 @@ Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pIndexBuffer = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBNeverChanges = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBChangeOnResize = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBChangesEveryFrame = nullptr;
+Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBTransform = nullptr;
+Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBConfiguration = nullptr;
 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pTextureRV = nullptr;
 Microsoft::WRL::ComPtr<ID3D11SamplerState>        g_pSamplerLinear = nullptr;
 XMMATRIX                                          g_World;
 XMMATRIX                                          g_View;
 XMMATRIX                                          g_Projection;
+XMMATRIX                                          g_ViewTess;
+XMMATRIX                                          g_ProjectionTess;
+XMMATRIX                                          g_ViewProjectionTess;
+XMMATRIX                                          g_OrientProjMatrixInverse;
 XMFLOAT4                                          g_vMeshColor( 0.7f, 0.7f, 0.7f, 1.0f );
 
 const float SIZE_TERRAIN = 2000.0f;
@@ -108,6 +135,9 @@ const LPCWSTR TEXTURE_NORMAL_NAME = L"..\\media\\terrain1NormalHeight(1K).dds";
 //Terrain Texture
 const LPCWSTR textureTerrainName = L"..\\media\\rock.jpg";
 
+//Texture with the noise to add to the ocean normals
+const LPCWSTR bumpTextureName = L"..\\media\\Waterbump.jpg";
+
 //Texture size
 //const UINT textureWidth = 512;
 //const UINT textureHeight = 512;
@@ -117,6 +147,15 @@ const UINT textureHeight = 1024;
 //const UINT textureHeight = 2048;
 //const UINT textureWidth = 4096;
 //const UINT textureHeight = 4096;
+
+const float minDistance          =  100.0f; // Minimum distance in wich the tessellation factor will not increase more
+const float maxDistance          = 1000.0f; // Maximum distance in wich the tessellation factor will not decrease more
+const float minLog2TessFactor    =    1.0f; // Minimum value that can take the log2 of the tessellation factor
+const float maxLog2TessFactor    =    5.0f; // Maximum value that can take the log2 of the tessellation factor
+const bool drawWires             =   false; // Draw the mesh with wireframe overlay
+const bool drawNormals           =   false; // Draw the mesh with normal overlay
+const bool applyAngleCorrection  =   false; // Apply the angle correction to the tessellation factor
+const bool hold                  =   false; // Hold the animation of the ocean
 
 
 //--------------------------------------------------------------------------------------
@@ -604,6 +643,81 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
+	//-------------------------------------------
+	//   Create never changes constant buffer
+	//-------------------------------------------
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(CBNeverChanges);
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bd.CPUAccessFlags = 0;
+	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBNeverChanges);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create changes on resize constant buffer
+	//------------------------------------------------
+	bd.ByteWidth = sizeof(CBChangeOnResize);
+	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBChangeOnResize);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create changes every frame constant buffer
+	//------------------------------------------------
+	bd.ByteWidth = sizeof(CBChangesEveryFrame);
+	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBChangesEveryFrame);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create transform constant buffer
+	//------------------------------------------------
+	bd.ByteWidth = sizeof(CBTransform);
+	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBTransform);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create configuration constant buffer
+	//------------------------------------------------
+	bd.ByteWidth = sizeof(CBConfiguration);
+	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBConfiguration);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create sea floor texture
+	//------------------------------------------------
+	hr = CreateDDSTextureFromFile(g_pd3dDevice.Get(), L"seafloor.dds", nullptr, &g_pTextureRV);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create linear sampler
+	//------------------------------------------------
+	D3D11_SAMPLER_DESC sampDesc;
+	ZeroMemory(&sampDesc, sizeof(sampDesc));
+	sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	sampDesc.MinLOD = 0;
+	sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	hr = g_pd3dDevice->CreateSamplerState(&sampDesc, &g_pSamplerLinear);
+	if (FAILED(hr))
+		return hr;
+
 	g_pImmediateContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), g_pDepthStencilView.Get());
 
 	// Setup the viewport
@@ -630,61 +744,47 @@ HRESULT InitDevice()
     // Set primitive topology
     g_pImmediateContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
 
-    // Create the constant buffers
-	D3D11_BUFFER_DESC bd;
-	ZeroMemory(&bd, sizeof(bd));
-    bd.Usage = D3D11_USAGE_DEFAULT;
-    bd.ByteWidth = sizeof(CBNeverChanges);
-    bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    bd.CPUAccessFlags = 0;
-    hr = g_pd3dDevice->CreateBuffer( &bd, nullptr, &g_pCBNeverChanges );
-    if( FAILED( hr ) )
-        return hr;
-    
-    bd.ByteWidth = sizeof(CBChangeOnResize);
-    hr = g_pd3dDevice->CreateBuffer( &bd, nullptr, &g_pCBChangeOnResize );
-    if( FAILED( hr ) )
-        return hr;
-    
-    bd.ByteWidth = sizeof(CBChangesEveryFrame);
-    hr = g_pd3dDevice->CreateBuffer( &bd, nullptr, &g_pCBChangesEveryFrame );
-    if( FAILED( hr ) )
-        return hr;
-
-    // Load the Texture
-    hr = CreateDDSTextureFromFile( g_pd3dDevice.Get(), L"seafloor.dds", nullptr, &g_pTextureRV );
-    if( FAILED( hr ) )
-        return hr;
-
-    // Create the sample state
-    D3D11_SAMPLER_DESC sampDesc;
-    ZeroMemory( &sampDesc, sizeof(sampDesc) );
-    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
-    sampDesc.MinLOD = 0;
-    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    hr = g_pd3dDevice->CreateSamplerState( &sampDesc, &g_pSamplerLinear );
-    if( FAILED( hr ) )
-        return hr;
-
     // Initialize the world matrices
     g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-    XMVECTOR Eye = XMVectorSet( 0.0f, 3.0f, -6.0f, 0.0f );
-    XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
+    XMVECTOR Eye = XMVectorSet( 0.0f, 3.0f, -6.0f, 1.0f );
+    XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 1.0f );
     XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
     g_View = XMMatrixLookAtLH( Eye, At, Up );
+
+	// Initialize the projection matrix
+	g_Projection = XMMatrixPerspectiveFovLH(XM_PIDIV4, width / (FLOAT)height, 0.01f, 100.0f);
+
+	XMVECTOR eyeTess = XMVectorSet(-15.0f, 150.0f, -15.0f, 1.0f);
+	XMVECTOR lookAtTess = XMVectorSet(SIZE_TERRAIN / 2.0f, 0.0f, SIZE_TERRAIN / 2.0f, 1.0f);
+	XMVECTOR upTess = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	g_ViewTess = XMMatrixLookAtLH(eyeTess, lookAtTess, upTess);
+
+	g_ProjectionTess = XMMatrixPerspectiveFovLH(XM_PIDIV2, width / (FLOAT)height, 0.1f, 5000.0f);
+
+	g_ViewProjectionTess = g_ViewTess * g_ProjectionTess;
+
+	XMMATRIX eyePosTranslationMatrix = XMMatrixTranslation(XMVectorGetX(eyeTess), XMVectorGetY(eyeTess), XMVectorGetZ(eyeTess));
+	g_OrientProjMatrixInverse = XMMatrixInverse(NULL, (eyePosTranslationMatrix * g_ViewTess * g_ProjectionTess));
+
+	CBTransform cbTransform;
+	cbTransform.viewProjMatrix = XMMatrixTranspose(g_ViewProjectionTess);
+	cbTransform.orientProjMatrixInverse = XMMatrixTranspose(g_OrientProjMatrixInverse);
+	XMStoreFloat3(&cbTransform.eyePosition, eyeTess);
+	g_pImmediateContext->UpdateSubresource(g_pCBTransform.Get(), 0, nullptr, &cbTransform, 0, 0);
+
+	CBConfiguration cbConfiguration;
+	cbConfiguration.minDistance = minDistance;
+	cbConfiguration.maxDistance = maxDistance;
+	cbConfiguration.minTessExp = minLog2TessFactor;
+	cbConfiguration.maxTessExp = maxLog2TessFactor;
+	cbConfiguration.applyCorrection = applyAngleCorrection;
+	g_pImmediateContext->UpdateSubresource(g_pCBConfiguration.Get(), 0, nullptr, &cbConfiguration, 0, 0);
 
     CBNeverChanges cbNeverChanges;
     cbNeverChanges.mView = XMMatrixTranspose( g_View );
     g_pImmediateContext->UpdateSubresource( g_pCBNeverChanges.Get(), 0, nullptr, &cbNeverChanges, 0, 0 );
-
-    // Initialize the projection matrix
-    g_Projection = XMMatrixPerspectiveFovLH( XM_PIDIV4, width / (FLOAT)height, 0.01f, 100.0f );
     
     CBChangeOnResize cbChangesOnResize;
     cbChangesOnResize.mProjection = XMMatrixTranspose( g_Projection );
@@ -776,7 +876,9 @@ void Render()
     //
     CBChangesEveryFrame cb;
     cb.mWorld = XMMatrixTranspose( g_World );
-    cb.vMeshColor = g_vMeshColor;
+	cb.vMeshColor.x = g_vMeshColor.x;
+	cb.vMeshColor.y = g_vMeshColor.y;
+	cb.vMeshColor.z = g_vMeshColor.z;
     g_pImmediateContext->UpdateSubresource( g_pCBChangesEveryFrame.Get(), 0, nullptr, &cb, 0, 0 );
 
     //
@@ -787,7 +889,7 @@ void Render()
     g_pImmediateContext->VSSetConstantBuffers( 1, 1, g_pCBChangeOnResize.GetAddressOf());
     g_pImmediateContext->VSSetConstantBuffers( 2, 1, g_pCBChangesEveryFrame.GetAddressOf() );
     g_pImmediateContext->PSSetShader( g_pPixelShader.Get(), nullptr, 0 );
-    g_pImmediateContext->PSSetConstantBuffers( 2, 1, g_pCBChangesEveryFrame.GetAddressOf() );
+    g_pImmediateContext->PSSetConstantBuffers( 0, 1, g_pCBChangesEveryFrame.GetAddressOf() );
     g_pImmediateContext->PSSetShaderResources( 0, 1, g_pTextureRV.GetAddressOf() );
     g_pImmediateContext->PSSetSamplers( 0, 1, g_pSamplerLinear.GetAddressOf() );
     g_pImmediateContext->DrawIndexed( 36, 0, 0 );

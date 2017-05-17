@@ -6,10 +6,11 @@
 Texture2D txDiffuse : register(t0);
 SamplerState samLinear : register(s0);
 
-cbuffer cbChangesEveryFrame : register(b2)
+cbuffer cbChangesEveryFrame : register(b0)
 {
 	matrix World;
-	float4 vMeshColor;
+	float3 vMeshColor;
+	float time;
 };
 
 //--------------------------------------------------------------------------------------
@@ -17,5 +18,5 @@ cbuffer cbChangesEveryFrame : register(b2)
 //--------------------------------------------------------------------------------------
 float4 psTextured(PS_INPUT input) : SV_Target
 {
-	return txDiffuse.Sample(samLinear, input.Tex) * vMeshColor;
+	return txDiffuse.Sample(samLinear, input.Tex) * float4(vMeshColor, 1.0f);
 }

@@ -16,28 +16,29 @@
 //------------------------------------------------------------
 // Constant Buffers
 //------------------------------------------------------------
-cbuffer transform
+cbuffer transform : register(b0)
 {
 	float4x4 viewProjMatrix;
 	float4x4 orientProjMatrixInverse;
 	float3 eyePosition;
 }
 
-bool applyCorrection;
-float minDistance;
-float maxDistance;
-float minTessExp;
-float maxTessExp;
+cbuffer configuration : register(b1)
+{
+	float minDistance;
+	float maxDistance;
+	float minTessExp;
+	float maxTessExp;
+	bool applyCorrection;
+}
 
 //------------------------------------------------------------
 // Vertex shader section
 //------------------------------------------------------------
-struct VS_CONTROL_POINT_OUTPUT
+struct VERTEX_POSITION
 {
 	float3 vPosition	: POSITION;
 };
-
-
 
 //------------------------------------------------------------
 // Constant data function for the hsOcean. This is executed
@@ -49,18 +50,13 @@ struct HS_CONSTANT_DATA_OUTPUT
 	float Inside[2]	: SV_InsideTessFactor;
 };
 
-struct HS_OUTPUT
-{
-	float3 vPosition	: POSITION;
-};
-
 // This constant hull shader is executed once per patch. It
 // will be executed SQRT_NUMBER_OF_PATCHS *
 // SQRT_NUMBER_OF_PATCHS times. We calculate a variable
 // tessellation factor based on the angle and the distnace
 // of the camera.
 
-HS_CONSTANT_DATA_OUTPUT OceanConstantHS(InputPatch<VS_CONTROL_POINT_OUTPUT, INPUT_PATCH_SIZE> ip, uint PatchID : SV_PrimitiveID)
+HS_CONSTANT_DATA_OUTPUT OceanConstantHS(InputPatch<VERTEX_POSITION, INPUT_PATCH_SIZE> ip, uint PatchID : SV_PrimitiveID)
 {
 	HS_CONSTANT_DATA_OUTPUT Output;
 
@@ -156,9 +152,9 @@ HS_CONSTANT_DATA_OUTPUT OceanConstantHS(InputPatch<VS_CONTROL_POINT_OUTPUT, INPU
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(OUTPUT_PATCH_SIZE)]
 [patchconstantfunc("OceanConstantHS")]
-HS_OUTPUT hsOcean(InputPatch<VS_CONTROL_POINT_OUTPUT, INPUT_PATCH_SIZE> p, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID)
+VERTEX_POSITION hsOcean(InputPatch<VERTEX_POSITION, INPUT_PATCH_SIZE> p, uint i : SV_OutputControlPointID, uint PatchID : SV_PrimitiveID)
 {
-	HS_OUTPUT Output;
+	VERTEX_POSITION Output;
 	Output.vPosition = p[i].vPosition;
 	return Output;
 }

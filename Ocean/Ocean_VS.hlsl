@@ -1,12 +1,7 @@
 //------------------------------------------------------------
 // Vertex shader section
 //------------------------------------------------------------
-struct VS_CONTROL_POINT_INPUT
-{
-	float3 vPosition	: POSITION;
-};
-
-struct VS_CONTROL_POINT_OUTPUT
+struct VERTEX_POSITION
 {
 	float3 vPosition	: POSITION;
 };
@@ -18,9 +13,9 @@ struct VS_CONTROL_POINT_OUTPUT
 // The output from the vertex shader will go into the hull
 // shader.
 
-VS_CONTROL_POINT_OUTPUT vsOcean(VS_CONTROL_POINT_INPUT Input)
+VERTEX_POSITION vsOcean(VERTEX_POSITION Input)
 {
-	VS_CONTROL_POINT_OUTPUT Output;
+	VERTEX_POSITION Output;
 
 	Output.vPosition = Input.vPosition;
 

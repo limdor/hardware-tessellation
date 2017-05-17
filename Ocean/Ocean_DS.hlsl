@@ -6,14 +6,19 @@
 //------------------------------------------------------------
 // Constant Buffers
 //------------------------------------------------------------
-cbuffer transform
+cbuffer transform : register(b0)
 {
 	float4x4 viewProjMatrix;
 	float4x4 orientProjMatrixInverse;
 	float3 eyePosition;
 }
 
-float time;
+cbuffer cbChangesEveryFrame : register(b1)
+{
+	matrix World;
+	float3 vMeshColor;
+	float time;
+};
 
 
 //------------------------------------------------------------
@@ -26,7 +31,7 @@ struct HS_CONSTANT_DATA_OUTPUT
 	float Inside[2]	: SV_InsideTessFactor;
 };
 
-struct HS_OUTPUT
+struct VERTEX_POSITION
 {
 	float3 vPosition	: POSITION;
 };
@@ -60,7 +65,7 @@ struct DS_OUTPUT
 // drawn to the screen.
 
 [domain("quad")]
-DS_OUTPUT dsOcean(HS_CONSTANT_DATA_OUTPUT input, float2 UV : SV_DomainLocation, const OutputPatch<HS_OUTPUT, OUTPUT_PATCH_SIZE> patch)
+DS_OUTPUT dsOcean(HS_CONSTANT_DATA_OUTPUT input, float2 UV : SV_DomainLocation, const OutputPatch<VERTEX_POSITION, OUTPUT_PATCH_SIZE> patch)
 {
 	//Linear interpolation between the position of the corners
 	float WorldPosX = lerp(patch[0].vPosition.x, patch[2].vPosition.x, UV.x);

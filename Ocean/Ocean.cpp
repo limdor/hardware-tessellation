@@ -19,6 +19,7 @@
 #include <directxmath.h>
 #include <directxcolors.h>
 #include "DDSTextureLoader.h"
+#include "WICTextureLoader.h"
 #include "ReadData.h"
 #include "resource.h"
 
@@ -39,26 +40,24 @@ struct TessellationVertex
 	XMFLOAT3 Pos;
 };
 
-struct CBNeverChanges
+struct alignas(16) CBNeverChanges
 {
     XMMATRIX mView; // 64 bytes
 };
 
-struct CBChangeOnResize
+struct alignas(16) CBChangeOnResize
 {
     XMMATRIX mProjection; // 64 bytes
 };
 
-__declspec(align(16))
-struct CBChangesEveryFrame
+struct alignas(16) CBChangesEveryFrame
 {
     XMMATRIX mWorld;      // 64 bytes
     XMFLOAT3 vMeshColor;  // 12 bytes
 	float time;           // 4 bytes
 };
 
-__declspec(align(16))
-struct CBTransform
+struct alignas(16) CBTransform
 {
 	XMMATRIX viewProjMatrix;          // 64 bytes
 	XMMATRIX orientProjMatrixInverse; // 64 bytes
@@ -66,15 +65,15 @@ struct CBTransform
 	char _pad[4];                     // 4 bytes (padding to make sizeof(CBTransform) multiple of 16
 };
 
-__declspec(align(16))
-struct CBConfiguration
+struct alignas(16) CBConfiguration
 {
 	float minDistance;    // 4 bytes
     float maxDistance;    // 4 bytes
     float minTessExp;     // 4 bytes
     float maxTessExp;     // 4 bytes
+	float sizeTerrain;    // 4 bytes
     bool applyCorrection; // 1 byte
-	char _pad[15];        // 15 bytes (padding to make sizeof(CBConfiguration) multiple of 16
+	char _pad[11];        // 11 bytes (padding to make sizeof(CBConfiguration) multiple of 16
 };
 
 //--------------------------------------------------------------------------------------
@@ -109,6 +108,8 @@ Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBChangesEveryFrame = nullp
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBTransform = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBConfiguration = nullptr;
 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pTextureRV = nullptr;
+Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pBumpTextureRV = nullptr;
+Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pEnvMapRV = nullptr;
 Microsoft::WRL::ComPtr<ID3D11SamplerState>        g_pSamplerLinear = nullptr;
 XMMATRIX                                          g_World;
 XMMATRIX                                          g_View;
@@ -703,6 +704,22 @@ HRESULT InitDevice()
 
 
 	//------------------------------------------------
+	//   Create water bump texture
+	//------------------------------------------------
+	hr = CreateWICTextureFromFile(g_pd3dDevice.Get(), L"Waterbump.jpg", nullptr, &g_pBumpTextureRV);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
+	//   Create environment map texture
+	//------------------------------------------------
+	hr = CreateDDSTextureFromFile(g_pd3dDevice.Get(), L"cloudyNoon.dds", nullptr, &g_pEnvMapRV);
+	if (FAILED(hr))
+		return hr;
+
+
+	//------------------------------------------------
 	//   Create linear sampler
 	//------------------------------------------------
 	D3D11_SAMPLER_DESC sampDesc;
@@ -779,6 +796,7 @@ HRESULT InitDevice()
 	cbConfiguration.maxDistance = maxDistance;
 	cbConfiguration.minTessExp = minLog2TessFactor;
 	cbConfiguration.maxTessExp = maxLog2TessFactor;
+	cbConfiguration.sizeTerrain = SIZE_TERRAIN;
 	cbConfiguration.applyCorrection = applyAngleCorrection;
 	g_pImmediateContext->UpdateSubresource(g_pCBConfiguration.Get(), 0, nullptr, &cbConfiguration, 0, 0);
 

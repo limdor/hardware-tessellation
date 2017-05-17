@@ -544,6 +544,7 @@
   <ItemGroup>
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="Ocean.cpp" />
+    <ClCompile Include="WICTextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDSTextureLoader.h" />
@@ -551,9 +552,12 @@
     <CLInclude Include="resource.h" />
     <ClInclude Include="resource1.h" />
     <ClInclude Include="waves.h" />
+    <ClInclude Include="WICTextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="cloudyNoon.dds" />
     <Image Include="seafloor.dds" />
+    <Image Include="Waterbump.jpg" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Input_PS.hlsli" />

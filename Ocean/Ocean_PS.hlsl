@@ -1,20 +1,34 @@
 //------------------------------------------------------------
 // Constant Buffers
 //------------------------------------------------------------
-cbuffer transform
+cbuffer transform : register(b0)
 {
 	float4x4 viewProjMatrix;
 	float4x4 orientProjMatrixInverse;
 	float3 eyePosition;
 }
 
-Texture2D bumpTexture;
+cbuffer cbChangesEveryFrame : register(b1)
+{
+	matrix World;
+	float3 vMeshColor;
+	float time;
+};
 
-float sizeTerrain;
-float time;
+cbuffer configuration : register(b2)
+{
+	float minDistance;
+	float maxDistance;
+	float minTessExp;
+	float maxTessExp;
+	float sizeTerrain;
+	bool applyCorrection;
+}
+
+Texture2D bumpTexture : register(t0);
 
 //Background
-TextureCube envMap;
+TextureCube envMap : register(t1);
 
 SamplerState linearSampler : register(s0);
 

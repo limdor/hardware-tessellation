@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClCompile Include="DDSTextureLoader.cpp" />
     <ClCompile Include="Ocean.cpp" />
+    <ClCompile Include="WICTextureLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CLInclude Include="resource.h">
@@ -22,6 +23,7 @@
     <ClInclude Include="ReadData.h" />
     <ClInclude Include="waves.h" />
     <ClInclude Include="resource1.h" />
+    <ClInclude Include="WICTextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Normals_PS.hlsl">
@@ -60,6 +62,12 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="seafloor.dds">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Waterbump.jpg">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="cloudyNoon.dds">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

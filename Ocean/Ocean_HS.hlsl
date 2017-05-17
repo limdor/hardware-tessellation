@@ -29,6 +29,7 @@ cbuffer configuration : register(b1)
 	float maxDistance;
 	float minTessExp;
 	float maxTessExp;
+	float sizeTerrain;
 	bool applyCorrection;
 }
 

@@ -28,33 +28,15 @@ using namespace DirectX;
 //--------------------------------------------------------------------------------------
 // Structures
 //--------------------------------------------------------------------------------------
-struct SimpleVertex
-{
-    XMFLOAT3 Pos;
-	XMFLOAT3 Norm;
-    XMFLOAT2 Tex;
-};
-
 struct TessellationVertex
 {
 	XMFLOAT3 Pos;
 };
 
-struct alignas(16) CBNeverChanges
-{
-    XMMATRIX mView; // 64 bytes
-};
-
-struct alignas(16) CBChangeOnResize
-{
-    XMMATRIX mProjection; // 64 bytes
-};
-
 struct alignas(16) CBChangesEveryFrame
 {
-    XMMATRIX mWorld;      // 64 bytes
-    XMFLOAT3 vMeshColor;  // 12 bytes
 	float time;           // 4 bytes
+	char _pad[12];        // 12 bytes (padding to make sizeof(CBTransform) multiple of 16
 };
 
 struct alignas(16) CBTransform
@@ -89,36 +71,25 @@ Microsoft::WRL::ComPtr<IDXGISwapChain>            g_pSwapChain = nullptr;
 Microsoft::WRL::ComPtr<ID3D11RenderTargetView>    g_pRenderTargetView = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Texture2D>           g_pDepthStencil = nullptr;
 Microsoft::WRL::ComPtr<ID3D11DepthStencilView>    g_pDepthStencilView = nullptr;
-Microsoft::WRL::ComPtr<ID3D11VertexShader>        g_pVertexShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11VertexShader>        g_pOceanVertexShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11HullShader>          g_pOceanHullShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11DomainShader>        g_pOceanDomainShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pOceanPixelShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pOceanNormalPixelShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pOceanWiredPixelShader = nullptr;
-Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pPixelShader = nullptr;
-Microsoft::WRL::ComPtr<ID3D11InputLayout>         g_pVertexLayout = nullptr;
 Microsoft::WRL::ComPtr<ID3D11InputLayout>         g_pTessVertexLayout = nullptr;
-Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pVertexBuffer = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pTessVertexBuffer = nullptr;
-Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pIndexBuffer = nullptr;
-Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBNeverChanges = nullptr;
-Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBChangeOnResize = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBChangesEveryFrame = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBTransform = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBConfiguration = nullptr;
-Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pTextureRV = nullptr;
 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pBumpTextureRV = nullptr;
 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>  g_pEnvMapRV = nullptr;
 Microsoft::WRL::ComPtr<ID3D11SamplerState>        g_pSamplerLinear = nullptr;
-XMMATRIX                                          g_World;
-XMMATRIX                                          g_View;
-XMMATRIX                                          g_Projection;
+Microsoft::WRL::ComPtr<ID3D11RasterizerState>     g_pRasterizerState = nullptr;
 XMMATRIX                                          g_ViewTess;
 XMMATRIX                                          g_ProjectionTess;
 XMMATRIX                                          g_ViewProjectionTess;
 XMMATRIX                                          g_OrientProjMatrixInverse;
-XMFLOAT4                                          g_vMeshColor( 0.7f, 0.7f, 0.7f, 1.0f );
 
 const float SIZE_TERRAIN = 2000.0f;
 const unsigned int SQRT_NUMBER_OF_PATCHS = 8;
@@ -417,133 +388,6 @@ HRESULT InitDevice()
         return hr;
 
 
-    //-------------------------------------------
-	//   Create vertex buffer for the cube
-	//-------------------------------------------
-	SimpleVertex vertices[] =
-	{
-		// Upper cover
-		{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
-
-		// Lower cover								  			    
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
-
-		// Left cover
-		{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(-1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
-
-		// Right cover
-		{ XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT3(1.0f,  0.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
-
-		// Back cover
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f,  0.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
-
-		// Front cover
-		{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f,  0.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	};
-
-	D3D11_BUFFER_DESC vertexBufferDesc;
-	ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
-	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	vertexBufferDesc.ByteWidth = sizeof(SimpleVertex) * 24;
-	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vertexBufferDesc.CPUAccessFlags = 0;
-	D3D11_SUBRESOURCE_DATA vBInitData;
-	ZeroMemory(&vBInitData, sizeof(vBInitData));
-	vBInitData.pSysMem = vertices;
-	hr = g_pd3dDevice->CreateBuffer(&vertexBufferDesc, &vBInitData, &g_pVertexBuffer);
-	if (FAILED(hr))
-		return hr;
-
-
-	//-------------------------------------------
-	//   Create index buffer for the cube
-	//-------------------------------------------
-	WORD indices[] =
-	{
-		3,1,0,
-		2,1,3,
-
-		6,4,5,
-		7,4,6,
-
-		11,9,8,
-		10,9,11,
-
-		14,12,13,
-		15,12,14,
-
-		19,17,16,
-		18,17,19,
-
-		22,20,21,
-		23,20,22
-	};
-
-	D3D11_BUFFER_DESC indexBufferDesc;
-	ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
-	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	indexBufferDesc.ByteWidth = sizeof(WORD) * 36;
-	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	indexBufferDesc.CPUAccessFlags = 0;
-	D3D11_SUBRESOURCE_DATA indexBufferInitData;
-	ZeroMemory(&indexBufferInitData, sizeof(indexBufferInitData));
-	indexBufferInitData.pSysMem = indices;
-	hr = g_pd3dDevice->CreateBuffer(&indexBufferDesc, &indexBufferInitData, &g_pIndexBuffer);
-	if (FAILED(hr))
-		return hr;
-
-
-	//-------------------------------------------
-	//   Create the transform vertex shader
-	//-------------------------------------------
-	auto blobTransformVS = DX::ReadData(L"Transform_VS.cso");
-    hr = g_pd3dDevice->CreateVertexShader(blobTransformVS.data(), blobTransformVS.size(), nullptr, &g_pVertexShader );
-    if( FAILED( hr ) )
-        return hr;
-
-
-	//-------------------------------------------
-	//   Create the simple vertex buffer layout
-	//-------------------------------------------
-    D3D11_INPUT_ELEMENT_DESC simpleVertexLayout[] =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0,    DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
-    UINT numElements = ARRAYSIZE(simpleVertexLayout);
-    hr = g_pd3dDevice->CreateInputLayout(simpleVertexLayout, numElements, blobTransformVS.data(), blobTransformVS.size(), &g_pVertexLayout );
-    if( FAILED( hr ) )
-        return hr;
-
-
-	//-------------------------------------------
-	//   Create the textured pixel shader
-	//-------------------------------------------
-	auto blobPS = DX::ReadData(L"Textured_PS.cso");
-	hr = g_pd3dDevice->CreatePixelShader(blobPS.data(), blobPS.size(), nullptr, &g_pPixelShader);
-	if (FAILED(hr))
-		return hr;
-
-
 	//-------------------------------------------
 	//   Create vertex buffer for tessallation
 	//-------------------------------------------
@@ -594,7 +438,7 @@ HRESULT InitDevice()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
-	numElements = ARRAYSIZE(tessVertexLayout);
+	UINT numElements = ARRAYSIZE(tessVertexLayout);
 	hr = g_pd3dDevice->CreateInputLayout(tessVertexLayout, numElements, blobOceanVS.data(), blobOceanVS.size(), &g_pTessVertexLayout);
 	if (FAILED(hr))
 		return hr;
@@ -645,33 +489,15 @@ HRESULT InitDevice()
 		return hr;
 
 
-	//-------------------------------------------
-	//   Create never changes constant buffer
-	//-------------------------------------------
-	D3D11_BUFFER_DESC bd;
-	ZeroMemory(&bd, sizeof(bd));
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(CBNeverChanges);
-	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bd.CPUAccessFlags = 0;
-	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBNeverChanges);
-	if (FAILED(hr))
-		return hr;
-
-
-	//------------------------------------------------
-	//   Create changes on resize constant buffer
-	//------------------------------------------------
-	bd.ByteWidth = sizeof(CBChangeOnResize);
-	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBChangeOnResize);
-	if (FAILED(hr))
-		return hr;
-
-
 	//------------------------------------------------
 	//   Create changes every frame constant buffer
 	//------------------------------------------------
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory(&bd, sizeof(bd));
+	bd.Usage = D3D11_USAGE_DEFAULT;
 	bd.ByteWidth = sizeof(CBChangesEveryFrame);
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bd.CPUAccessFlags = 0;
 	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBChangesEveryFrame);
 	if (FAILED(hr))
 		return hr;
@@ -691,14 +517,6 @@ HRESULT InitDevice()
 	//------------------------------------------------
 	bd.ByteWidth = sizeof(CBConfiguration);
 	hr = g_pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBConfiguration);
-	if (FAILED(hr))
-		return hr;
-
-
-	//------------------------------------------------
-	//   Create sea floor texture
-	//------------------------------------------------
-	hr = CreateDDSTextureFromFile(g_pd3dDevice.Get(), L"seafloor.dds", nullptr, &g_pTextureRV);
 	if (FAILED(hr))
 		return hr;
 
@@ -735,8 +553,23 @@ HRESULT InitDevice()
 	if (FAILED(hr))
 		return hr;
 
+
+	//------------------------------------------------
+	//   Create rasterizer state
+	//------------------------------------------------
+	D3D11_RASTERIZER_DESC rasterizerDesc;
+	ZeroMemory(&rasterizerDesc, sizeof(rasterizerDesc));
+	rasterizerDesc.CullMode = D3D11_CULL_MODE::D3D11_CULL_NONE;
+	rasterizerDesc.FillMode = D3D11_FILL_MODE::D3D11_FILL_SOLID;
+	rasterizerDesc.DepthClipEnable = true;
+	hr = g_pd3dDevice->CreateRasterizerState(&rasterizerDesc, &g_pRasterizerState);
+	if (FAILED(hr))
+		return hr;
+
+
 	g_pImmediateContext->OMSetRenderTargets(1, g_pRenderTargetView.GetAddressOf(), g_pDepthStencilView.Get());
 
+	g_pImmediateContext->RSSetState(g_pRasterizerState.Get());
 	// Setup the viewport
 	D3D11_VIEWPORT vp;
 	vp.Width = (FLOAT)width;
@@ -748,37 +581,25 @@ HRESULT InitDevice()
 	g_pImmediateContext->RSSetViewports(1, &vp);
 
     // Set the input layout
-    g_pImmediateContext->IASetInputLayout( g_pVertexLayout.Get() );
+    g_pImmediateContext->IASetInputLayout( g_pTessVertexLayout.Get() );
 
     // Set vertex buffer
-    UINT stride = sizeof( SimpleVertex );
+    UINT stride = sizeof( TessellationVertex );
     UINT offset = 0;
-    g_pImmediateContext->IASetVertexBuffers( 0, 1, g_pVertexBuffer.GetAddressOf(), &stride, &offset );
+    g_pImmediateContext->IASetVertexBuffers( 0, 1, g_pTessVertexBuffer.GetAddressOf(), &stride, &offset );
 
     // Set index buffer
-    g_pImmediateContext->IASetIndexBuffer( g_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0 );
+    //g_pImmediateContext->IASetIndexBuffer( g_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0 );
 
     // Set primitive topology
-    g_pImmediateContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
-
-    // Initialize the world matrices
-    g_World = XMMatrixIdentity();
-
-    // Initialize the view matrix
-    XMVECTOR Eye = XMVectorSet( 0.0f, 3.0f, -6.0f, 1.0f );
-    XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 1.0f );
-    XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
-    g_View = XMMatrixLookAtLH( Eye, At, Up );
-
-	// Initialize the projection matrix
-	g_Projection = XMMatrixPerspectiveFovLH(XM_PIDIV4, width / (FLOAT)height, 0.01f, 100.0f);
+    g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
 
 	XMVECTOR eyeTess = XMVectorSet(-15.0f, 150.0f, -15.0f, 1.0f);
 	XMVECTOR lookAtTess = XMVectorSet(SIZE_TERRAIN / 2.0f, 0.0f, SIZE_TERRAIN / 2.0f, 1.0f);
 	XMVECTOR upTess = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	g_ViewTess = XMMatrixLookAtLH(eyeTess, lookAtTess, upTess);
 
-	g_ProjectionTess = XMMatrixPerspectiveFovLH(XM_PIDIV2, width / (FLOAT)height, 0.1f, 5000.0f);
+	g_ProjectionTess = XMMatrixPerspectiveFovLH(XM_PIDIV4, width / (FLOAT)height, 0.1f, 5000.0f);
 
 	g_ViewProjectionTess = g_ViewTess * g_ProjectionTess;
 
@@ -799,14 +620,6 @@ HRESULT InitDevice()
 	cbConfiguration.sizeTerrain = SIZE_TERRAIN;
 	cbConfiguration.applyCorrection = applyAngleCorrection;
 	g_pImmediateContext->UpdateSubresource(g_pCBConfiguration.Get(), 0, nullptr, &cbConfiguration, 0, 0);
-
-    CBNeverChanges cbNeverChanges;
-    cbNeverChanges.mView = XMMatrixTranspose( g_View );
-    g_pImmediateContext->UpdateSubresource( g_pCBNeverChanges.Get(), 0, nullptr, &cbNeverChanges, 0, 0 );
-    
-    CBChangeOnResize cbChangesOnResize;
-    cbChangesOnResize.mProjection = XMMatrixTranspose( g_Projection );
-    g_pImmediateContext->UpdateSubresource( g_pCBChangeOnResize.Get(), 0, nullptr, &cbChangesOnResize, 0, 0 );
 
     return S_OK;
 }
@@ -871,18 +684,11 @@ void Render()
         t = ( timeCur - timeStart ) / 1000.0f;
     }
 
-    // Rotate cube around the origin
-    g_World = XMMatrixRotationY( t );
-
-    // Modify the color
-    g_vMeshColor.x = ( sinf( t * 1.0f ) + 1.0f ) * 0.5f;
-    g_vMeshColor.y = ( cosf( t * 3.0f ) + 1.0f ) * 0.5f;
-    g_vMeshColor.z = ( sinf( t * 5.0f ) + 1.0f ) * 0.5f;
-
     //
     // Clear the back buffer
     //
-    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView.Get(), Colors::MidnightBlue );
+	float backgroundColor[4] = {0.42f, 0.42f, 0.42f, 1.0f};
+    g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView.Get(), backgroundColor);
 
     //
     // Clear the depth buffer to 1.0 (max depth)
@@ -893,24 +699,28 @@ void Render()
     // Update variables that change once per frame
     //
     CBChangesEveryFrame cb;
-    cb.mWorld = XMMatrixTranspose( g_World );
-	cb.vMeshColor.x = g_vMeshColor.x;
-	cb.vMeshColor.y = g_vMeshColor.y;
-	cb.vMeshColor.z = g_vMeshColor.z;
+	cb.time = t;
     g_pImmediateContext->UpdateSubresource( g_pCBChangesEveryFrame.Get(), 0, nullptr, &cb, 0, 0 );
 
     //
     // Render the cube
     //
-    g_pImmediateContext->VSSetShader( g_pVertexShader.Get(), nullptr, 0 );
-    g_pImmediateContext->VSSetConstantBuffers( 0, 1, g_pCBNeverChanges.GetAddressOf());
-    g_pImmediateContext->VSSetConstantBuffers( 1, 1, g_pCBChangeOnResize.GetAddressOf());
-    g_pImmediateContext->VSSetConstantBuffers( 2, 1, g_pCBChangesEveryFrame.GetAddressOf() );
-    g_pImmediateContext->PSSetShader( g_pPixelShader.Get(), nullptr, 0 );
-    g_pImmediateContext->PSSetConstantBuffers( 0, 1, g_pCBChangesEveryFrame.GetAddressOf() );
-    g_pImmediateContext->PSSetShaderResources( 0, 1, g_pTextureRV.GetAddressOf() );
+    g_pImmediateContext->VSSetShader( g_pOceanVertexShader.Get(), nullptr, 0 );
+	g_pImmediateContext->HSSetShader(g_pOceanHullShader.Get(), nullptr, 0);
+	g_pImmediateContext->HSSetConstantBuffers(0, 1, g_pCBTransform.GetAddressOf());
+	g_pImmediateContext->HSSetConstantBuffers(1, 1, g_pCBConfiguration.GetAddressOf());
+	g_pImmediateContext->DSSetShader(g_pOceanDomainShader.Get(), nullptr, 0);
+	g_pImmediateContext->DSSetConstantBuffers(0, 1, g_pCBTransform.GetAddressOf());
+	g_pImmediateContext->DSSetConstantBuffers(1, 1, g_pCBChangesEveryFrame.GetAddressOf());
+	g_pImmediateContext->GSSetShader(nullptr, nullptr, 0);
+    g_pImmediateContext->PSSetShader( g_pOceanPixelShader.Get(), nullptr, 0 );
+	g_pImmediateContext->PSSetConstantBuffers(0, 1, g_pCBTransform.GetAddressOf());
+	g_pImmediateContext->PSSetConstantBuffers(1, 1, g_pCBChangesEveryFrame.GetAddressOf());
+	g_pImmediateContext->PSSetConstantBuffers(2, 1, g_pCBConfiguration.GetAddressOf());
+    g_pImmediateContext->PSSetShaderResources( 0, 1, g_pBumpTextureRV.GetAddressOf() );
+    g_pImmediateContext->PSSetShaderResources( 1, 1, g_pEnvMapRV.GetAddressOf() );
     g_pImmediateContext->PSSetSamplers( 0, 1, g_pSamplerLinear.GetAddressOf() );
-    g_pImmediateContext->DrawIndexed( 36, 0, 0 );
+    g_pImmediateContext->Draw(SQRT_NUMBER_OF_PATCHS*SQRT_NUMBER_OF_PATCHS*4, 0 );
 
     //
     // Present our back buffer to our front buffer

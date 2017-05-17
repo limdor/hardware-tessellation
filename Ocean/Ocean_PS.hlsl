@@ -10,8 +10,6 @@ cbuffer transform : register(b0)
 
 cbuffer cbChangesEveryFrame : register(b1)
 {
-	matrix World;
-	float3 vMeshColor;
 	float time;
 };
 

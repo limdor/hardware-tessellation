@@ -21,20 +21,10 @@
     </CLInclude>
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="ReadData.h" />
-    <ClInclude Include="waves.h" />
     <ClInclude Include="resource1.h" />
     <ClInclude Include="WICTextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Normals_PS.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Textured_PS.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Transform_VS.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="Ocean_HS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -61,20 +51,12 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="seafloor.dds">
-      <Filter>Resource Files</Filter>
-    </Image>
     <Image Include="Waterbump.jpg">
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="cloudyNoon.dds">
       <Filter>Resource Files</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Input_PS.hlsli">
-      <Filter>Shaders</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Ocean.rc">

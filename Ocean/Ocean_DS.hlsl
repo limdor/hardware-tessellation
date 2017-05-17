@@ -1,7 +1,25 @@
 // The output patch size. It is also 4 control points.
 #define OUTPUT_PATCH_SIZE 4
 
-#include "waves.h"
+//wave record
+struct Wave
+{
+	float		wavelength;
+	float		amplitude;
+	float3		direction;
+};
+
+//wave data
+#define NWAVES 8
+static const Wave wave[NWAVES] = { { 65.0f, 1.0f, float3(0.98, 0, 0.17) },
+{ 43.5f, 0.6f, float3(0.98, 0, -0.17) },
+{ 22.0f, 0.4f, float3(0.934, 0, 0.342) },
+{ 99.0f, 2.0f, float3(0.934, 0, -0.342) },
+{ 25.0f, 0.3f, float3(0.97, 0, 0.24) },
+{ 47.5f, 0.5f, float3(0.97, 0, -0.24) },
+{ 57.0f, 0.9f, float3(0.99, 0, -0.14) },
+{ 81.0f, 1.6f, float3(0.99, 0, 0.14) }
+};
 
 //------------------------------------------------------------
 // Constant Buffers
@@ -15,8 +33,6 @@ cbuffer transform : register(b0)
 
 cbuffer cbChangesEveryFrame : register(b1)
 {
-	matrix World;
-	float3 vMeshColor;
 	float time;
 };
 
@@ -70,7 +86,7 @@ DS_OUTPUT dsOcean(HS_CONSTANT_DATA_OUTPUT input, float2 UV : SV_DomainLocation, 
 	//Linear interpolation between the position of the corners
 	float WorldPosX = lerp(patch[0].vPosition.x, patch[2].vPosition.x, UV.x);
 	float WorldPosZ = lerp(patch[0].vPosition.z, patch[2].vPosition.z, UV.y);
-
+	
 	//Calculating the position and normal of every vertex
 	//depending on the waves
 	float3 du = float3(1, 0, 0);
@@ -98,7 +114,7 @@ DS_OUTPUT dsOcean(HS_CONSTANT_DATA_OUTPUT input, float2 UV : SV_DomainLocation, 
 		dv += da * wave[i].direction.z;
 
 	}
-
+	
 	//Calculation of the final position
 	float3 position = float3(WorldPosX, 0, WorldPosZ) + displacement;
 

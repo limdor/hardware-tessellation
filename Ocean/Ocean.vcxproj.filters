@@ -21,7 +21,6 @@
     </CLInclude>
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="ReadData.h" />
-    <ClInclude Include="resource1.h" />
     <ClInclude Include="WICTextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -55,6 +54,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="cloudyNoon.dds">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="directx.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

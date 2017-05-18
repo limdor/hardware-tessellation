@@ -203,12 +203,12 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIcon( hInstance, ( LPCTSTR )IDI_TUTORIAL1 );
+    wcex.hIcon = LoadIcon( hInstance, ( LPCTSTR )IDI_OCEAN );
     wcex.hCursor = LoadCursor( nullptr, IDC_ARROW );
     wcex.hbrBackground = ( HBRUSH )( COLOR_WINDOW + 1 );
     wcex.lpszMenuName = nullptr;
     wcex.lpszClassName = L"OceanWindowClass";
-    wcex.hIconSm = LoadIcon( wcex.hInstance, ( LPCTSTR )IDI_TUTORIAL1 );
+    wcex.hIconSm = LoadIcon( wcex.hInstance, ( LPCTSTR )IDI_OCEAN);
     if( !RegisterClassEx( &wcex ) )
         return E_FAIL;
 
@@ -234,9 +234,6 @@ HRESULT InitWindow( HINSTANCE hInstance, int nCmdShow )
 //--------------------------------------------------------------------------------------
 HRESULT InitDevice()
 {
-    HRESULT hr = S_OK;
-
-
 	//-------------------------------------------
 	//  Obtain window width and height
 	//-------------------------------------------
@@ -268,6 +265,7 @@ HRESULT InitDevice()
     };
     UINT numFeatureLevels = ARRAYSIZE( featureLevels );
 
+	HRESULT hr = S_OK;
     for( UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++ )
     {
         g_driverType = driverTypes[driverTypeIndex];
@@ -460,10 +458,10 @@ HRESULT InitDevice()
 		for (unsigned int j = 0; j < SQRT_NUMBER_OF_PATCHS; ++j)
 		{
 			//Here we calculate 4 control points
-			tessallationVertexBuffer[index + 0].Pos = XMFLOAT3(bigInc * i, 0.0f, bigInc * j);
-			tessallationVertexBuffer[index + 1].Pos = XMFLOAT3(bigInc * i, 0.0f, bigInc * (j + 1));
+			tessallationVertexBuffer[index + 0].Pos = XMFLOAT3(bigInc * (i + 0), 0.0f, bigInc * (j + 0));
+			tessallationVertexBuffer[index + 1].Pos = XMFLOAT3(bigInc * (i + 0), 0.0f, bigInc * (j + 1));
 			tessallationVertexBuffer[index + 2].Pos = XMFLOAT3(bigInc * (i + 1), 0.0f, bigInc * (j + 1));
-			tessallationVertexBuffer[index + 3].Pos = XMFLOAT3(bigInc * (i + 1), 0.0f, bigInc * j);
+			tessallationVertexBuffer[index + 3].Pos = XMFLOAT3(bigInc * (i + 1), 0.0f, bigInc * (j + 0));
 			index += 4;
 		}
 	}

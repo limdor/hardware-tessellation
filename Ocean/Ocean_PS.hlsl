@@ -86,7 +86,7 @@ float4 psOcean(DS_OUTPUT input) : SV_TARGET
 	float4 deepColor = float4(0.2, 0.3, 0.5, 0);
 
 	float3 reflDir = reflect(eyePosition - positionWorld, N);
-	float4 envColor = envMap.Sample(linearSampler, reflDir);
+	float4 envColor = envMap.Sample(linearSampler, -reflDir);
 
 	float4 waterColor = deepColor * cosAngle + shallowColor * (1 - cosAngle);
 

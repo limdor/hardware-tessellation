@@ -490,11 +490,11 @@
     <ClInclude Include="DDSTextureLoader.h" />
     <ClInclude Include="ReadData.h" />
     <CLInclude Include="resource.h" />
-    <ClInclude Include="resource1.h" />
     <ClInclude Include="WICTextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="cloudyNoon.dds" />
+    <Image Include="directx.ico" />
     <Image Include="Waterbump.jpg" />
   </ItemGroup>
   <ItemGroup>

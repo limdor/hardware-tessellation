@@ -33,6 +33,12 @@ struct TessellationVertex
 	XMFLOAT3 Pos;
 };
 
+struct QuadVertex
+{
+	XMFLOAT3 Pos;
+	XMFLOAT2 Tex;
+};
+
 struct alignas(16) CBChangesEveryFrame
 {
 	float time;           // 4 bytes
@@ -71,6 +77,8 @@ Microsoft::WRL::ComPtr<IDXGISwapChain>            g_pSwapChain = nullptr;
 Microsoft::WRL::ComPtr<ID3D11RenderTargetView>    g_pRenderTargetView = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Texture2D>           g_pDepthStencil = nullptr;
 Microsoft::WRL::ComPtr<ID3D11DepthStencilView>    g_pDepthStencilView = nullptr;
+Microsoft::WRL::ComPtr<ID3D11VertexShader>        g_pQuadVertexShader = nullptr;
+Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pBackgroundPixelShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11VertexShader>        g_pOceanVertexShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11HullShader>          g_pOceanHullShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11DomainShader>        g_pOceanDomainShader = nullptr;
@@ -79,6 +87,9 @@ Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pOceanNormalPixelShader = nu
 Microsoft::WRL::ComPtr<ID3D11PixelShader>         g_pOceanWiredPixelShader = nullptr;
 Microsoft::WRL::ComPtr<ID3D11InputLayout>         g_pTessVertexLayout = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pTessVertexBuffer = nullptr;
+Microsoft::WRL::ComPtr<ID3D11InputLayout>         g_pQuadVertexLayout = nullptr;
+Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pQuadVertexBuffer = nullptr;
+Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pQuadIndexBuffer = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBChangesEveryFrame = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBTransform = nullptr;
 Microsoft::WRL::ComPtr<ID3D11Buffer>              g_pCBConfiguration = nullptr;
@@ -389,6 +400,55 @@ HRESULT InitDevice()
 
 
 	//-------------------------------------------
+	//   Create vertex buffer for background quad
+	//-------------------------------------------
+	static const float fSize = 1.0f;
+	QuadVertex quadVertexBuffer[] =
+	{
+		{ XMFLOAT3(-fSize,  fSize, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+		{ XMFLOAT3(fSize,  fSize, 0.0f), XMFLOAT2(1.0f, 0.0f) },
+		{ XMFLOAT3(-fSize, -fSize, 0.0f), XMFLOAT2(0.0f, 1.0f) },
+		{ XMFLOAT3(fSize, -fSize, 0.0f), XMFLOAT2(1.0f, 1.0f) }
+	};
+
+	D3D11_BUFFER_DESC vertexBufferDesc;
+	ZeroMemory(&vertexBufferDesc, sizeof(vertexBufferDesc));
+	vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	vertexBufferDesc.ByteWidth = sizeof(QuadVertex) * 4;
+	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	vertexBufferDesc.CPUAccessFlags = 0;
+	D3D11_SUBRESOURCE_DATA vBInitData;
+	ZeroMemory(&vBInitData, sizeof(vBInitData));
+	vBInitData.pSysMem = quadVertexBuffer;
+	hr = g_pd3dDevice->CreateBuffer(&vertexBufferDesc, &vBInitData, &g_pQuadVertexBuffer);
+	if (FAILED(hr))
+		return hr;
+
+
+	//-------------------------------------------
+	//   Create index buffer for background quad
+	//-------------------------------------------
+	WORD quadIndices[] =
+	{
+		0,1,2,
+		3,2,1
+	};
+
+	D3D11_BUFFER_DESC indexBufferDesc;
+	ZeroMemory(&indexBufferDesc, sizeof(indexBufferDesc));
+	indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	indexBufferDesc.ByteWidth = sizeof(WORD) * 6;
+	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	indexBufferDesc.CPUAccessFlags = 0;
+	D3D11_SUBRESOURCE_DATA indexBufferInitData;
+	ZeroMemory(&indexBufferInitData, sizeof(indexBufferInitData));
+	indexBufferInitData.pSysMem = quadIndices;
+	hr = g_pd3dDevice->CreateBuffer(&indexBufferDesc, &indexBufferInitData, &g_pQuadIndexBuffer);
+	if (FAILED(hr))
+		return hr;
+
+
+	//-------------------------------------------
 	//   Create vertex buffer for tessallation
 	//-------------------------------------------
 	TessellationVertex tessallationVertexBuffer[SQRT_NUMBER_OF_PATCHS * SQRT_NUMBER_OF_PATCHS * 4];
@@ -408,16 +468,9 @@ HRESULT InitDevice()
 		}
 	}
 
-	D3D11_BUFFER_DESC tessVertexBufferDesc;
-	ZeroMemory(&tessVertexBufferDesc, sizeof(tessVertexBufferDesc));
-	tessVertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	tessVertexBufferDesc.ByteWidth = sizeof(TessellationVertex) * SQRT_NUMBER_OF_PATCHS * SQRT_NUMBER_OF_PATCHS * 4;
-	tessVertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	tessVertexBufferDesc.CPUAccessFlags = 0;
-	D3D11_SUBRESOURCE_DATA tessVBInitData;
-	ZeroMemory(&tessVBInitData, sizeof(tessVBInitData));
-	tessVBInitData.pSysMem = tessallationVertexBuffer;
-	hr = g_pd3dDevice->CreateBuffer(&tessVertexBufferDesc, &tessVBInitData, &g_pTessVertexBuffer);
+	vertexBufferDesc.ByteWidth = sizeof(TessellationVertex) * SQRT_NUMBER_OF_PATCHS * SQRT_NUMBER_OF_PATCHS * 4;
+	vBInitData.pSysMem = tessallationVertexBuffer;
+	hr = g_pd3dDevice->CreateBuffer(&vertexBufferDesc, &vBInitData, &g_pTessVertexBuffer);
 	if (FAILED(hr))
 		return hr;
 
@@ -438,8 +491,29 @@ HRESULT InitDevice()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
-	UINT numElements = ARRAYSIZE(tessVertexLayout);
-	hr = g_pd3dDevice->CreateInputLayout(tessVertexLayout, numElements, blobOceanVS.data(), blobOceanVS.size(), &g_pTessVertexLayout);
+	hr = g_pd3dDevice->CreateInputLayout(tessVertexLayout, ARRAYSIZE(tessVertexLayout), blobOceanVS.data(), blobOceanVS.size(), &g_pTessVertexLayout);
+	if (FAILED(hr))
+		return hr;
+
+
+	//-------------------------------------------
+	//   Create the quad vertex shader
+	//-------------------------------------------
+	auto blobQuadVS = DX::ReadData(L"Quad_VS.cso");
+	hr = g_pd3dDevice->CreateVertexShader(blobQuadVS.data(), blobQuadVS.size(), nullptr, &g_pQuadVertexShader);
+	if (FAILED(hr))
+		return hr;
+
+
+	//-------------------------------------------------
+	//   Create the quad vertex buffer layout
+	//-------------------------------------------------
+	D3D11_INPUT_ELEMENT_DESC quadVertexLayout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	hr = g_pd3dDevice->CreateInputLayout(quadVertexLayout, ARRAYSIZE(quadVertexLayout), blobQuadVS.data(), blobQuadVS.size(), &g_pQuadVertexLayout);
 	if (FAILED(hr))
 		return hr;
 
@@ -449,6 +523,15 @@ HRESULT InitDevice()
 	//-------------------------------------------
 	auto blobOceanHS = DX::ReadData(L"Ocean_HS.cso");
 	hr = g_pd3dDevice->CreateHullShader(blobOceanHS.data(), blobOceanHS.size(), nullptr, &g_pOceanHullShader);
+	if (FAILED(hr))
+		return hr;
+
+
+	//-------------------------------------------
+	//   Create the background pixel shader
+	//-------------------------------------------
+	auto blobBackgroundPS = DX::ReadData(L"Background_PS.cso");
+	hr = g_pd3dDevice->CreatePixelShader(blobBackgroundPS.data(), blobBackgroundPS.size(), nullptr, &g_pBackgroundPixelShader);
 	if (FAILED(hr))
 		return hr;
 
@@ -580,20 +663,6 @@ HRESULT InitDevice()
 	vp.TopLeftY = 0;
 	g_pImmediateContext->RSSetViewports(1, &vp);
 
-    // Set the input layout
-    g_pImmediateContext->IASetInputLayout( g_pTessVertexLayout.Get() );
-
-    // Set vertex buffer
-    UINT stride = sizeof( TessellationVertex );
-    UINT offset = 0;
-    g_pImmediateContext->IASetVertexBuffers( 0, 1, g_pTessVertexBuffer.GetAddressOf(), &stride, &offset );
-
-    // Set index buffer
-    //g_pImmediateContext->IASetIndexBuffer( g_pIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0 );
-
-    // Set primitive topology
-    g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
-
 	XMVECTOR eyeTess = XMVectorSet(-15.0f, 150.0f, -15.0f, 1.0f);
 	XMVECTOR lookAtTess = XMVectorSet(SIZE_TERRAIN / 2.0f, 0.0f, SIZE_TERRAIN / 2.0f, 1.0f);
 	XMVECTOR upTess = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -702,9 +771,15 @@ void Render()
 	cb.time = t;
     g_pImmediateContext->UpdateSubresource( g_pCBChangesEveryFrame.Get(), 0, nullptr, &cb, 0, 0 );
 
-    //
-    // Render the cube
-    //
+	//------------------------------------------------
+	//   Render the ocean
+	//------------------------------------------------
+	g_pImmediateContext->IASetInputLayout(g_pTessVertexLayout.Get());
+	UINT stride = sizeof(TessellationVertex);
+	UINT offset = 0;
+	g_pImmediateContext->IASetVertexBuffers(0, 1, g_pTessVertexBuffer.GetAddressOf(), &stride, &offset);
+	g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+
     g_pImmediateContext->VSSetShader( g_pOceanVertexShader.Get(), nullptr, 0 );
 	g_pImmediateContext->HSSetShader(g_pOceanHullShader.Get(), nullptr, 0);
 	g_pImmediateContext->HSSetConstantBuffers(0, 1, g_pCBTransform.GetAddressOf());
@@ -721,6 +796,26 @@ void Render()
     g_pImmediateContext->PSSetShaderResources( 1, 1, g_pEnvMapRV.GetAddressOf() );
     g_pImmediateContext->PSSetSamplers( 0, 1, g_pSamplerLinear.GetAddressOf() );
     g_pImmediateContext->Draw(SQRT_NUMBER_OF_PATCHS*SQRT_NUMBER_OF_PATCHS*4, 0 );
+
+
+	//------------------------------------------------
+	//   Render the background
+	//------------------------------------------------
+	g_pImmediateContext->IASetInputLayout(g_pQuadVertexLayout.Get());
+	stride = sizeof(QuadVertex);
+	offset = 0;
+	g_pImmediateContext->IASetVertexBuffers(0, 1, g_pQuadVertexBuffer.GetAddressOf(), &stride, &offset);
+	g_pImmediateContext->IASetIndexBuffer( g_pQuadIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0 );
+	g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	g_pImmediateContext->VSSetShader(g_pQuadVertexShader.Get(), nullptr, 0);
+	g_pImmediateContext->VSSetConstantBuffers(0, 1, g_pCBTransform.GetAddressOf());
+	g_pImmediateContext->HSSetShader(nullptr, nullptr, 0);
+	g_pImmediateContext->DSSetShader(nullptr, nullptr, 0);
+	g_pImmediateContext->GSSetShader(nullptr, nullptr, 0);
+	g_pImmediateContext->PSSetShader(g_pBackgroundPixelShader.Get(), nullptr, 0);
+	g_pImmediateContext->PSSetShaderResources(0, 1, g_pEnvMapRV.GetAddressOf());
+	g_pImmediateContext->PSSetSamplers(0, 1, g_pSamplerLinear.GetAddressOf());
+	g_pImmediateContext->DrawIndexed(6, 0, 0);
 
     //
     // Present our back buffer to our front buffer

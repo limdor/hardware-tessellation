@@ -1,7 +1,7 @@
 //------------------------------------------------------------
 // Constant Buffers
 //------------------------------------------------------------
-cbuffer transform
+cbuffer transform : register(b0)
 {
 	float4x4 viewProjMatrix;
 	float4x4 orientProjMatrixInverse;
@@ -11,7 +11,7 @@ cbuffer transform
 //This last part of the fx file is to render the background
 struct QuadInput
 {
-	float4  pos	: POSITION;
+	float3  pos	: POSITION;
 	float2  tex	: TEXCOORD0;
 };
 
@@ -26,8 +26,8 @@ QuadOutput vsQuad(QuadInput input)
 {
 	QuadOutput output = (QuadOutput)0;
 
-	output.pos = input.pos;
-	float4 hWorldPosMinusEye = mul(input.pos, orientProjMatrixInverse);
+	output.pos = float4(input.pos, 1.0f);
+	float4 hWorldPosMinusEye = mul(float4(input.pos, 1.0f), orientProjMatrixInverse);
 	hWorldPosMinusEye /= hWorldPosMinusEye.w;
 	output.viewDir = hWorldPosMinusEye.xyz;
 	output.pos.z = 0.99999;

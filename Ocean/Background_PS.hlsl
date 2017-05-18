@@ -1,5 +1,5 @@
 //Background
-TextureCube envMap;
+TextureCube envMap : register(t0);
 
 SamplerState linearSampler : register(s0);
 
